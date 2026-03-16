@@ -14,6 +14,8 @@ cssselect2
 Django==4.2.23
 django-auditlog
 django-apscheduler
+# django-fernet-fields removed — incompatible with Django 4.x (uses removed force_text)
+# Fernet encryption is implemented in horilla/encrypted_field.py using cryptography directly
 django-cors-headers
 django-environ
 django-filter
@@ -70,6 +72,7 @@ reportlab==4.0.9
 requests
 responses
 setuptools
+simpleeval==0.9.13
 six
 sqlparse
 svglib

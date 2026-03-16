@@ -103,6 +103,12 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
+.env.production
+.env.staging
+.env.*.local
+# Keep .env.example — it is the safe-to-commit template
+!.env.example
 .venv
 env/
 venv/
