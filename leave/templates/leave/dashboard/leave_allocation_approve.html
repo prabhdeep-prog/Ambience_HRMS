@@ -1,4 +1,41 @@
 {% load i18n static %}
+<div class="oh-allocation-filters mb-2 px-1" style="display:flex;flex-wrap:wrap;gap:6px;">
+    <a class="oh-allocation-filter-btn {% if active_filter == 'default' %}oh-allocation-filter-btn--active{% endif %}"
+        hx-get="{% url 'leave-allocation-approve' %}?filter=default"
+        hx-target="#leaveAllocationApproveBody"
+        hx-trigger="click"
+        style="cursor:pointer;">
+        {% trans "Pending" %}
+    </a>
+    <a class="oh-allocation-filter-btn {% if active_filter == 'today' %}oh-allocation-filter-btn--active{% endif %}"
+        hx-get="{% url 'leave-allocation-approve' %}?filter=today"
+        hx-target="#leaveAllocationApproveBody"
+        hx-trigger="click"
+        style="cursor:pointer;">
+        {% trans "Today" %}
+    </a>
+    <a class="oh-allocation-filter-btn {% if active_filter == 'upcoming' %}oh-allocation-filter-btn--active{% endif %}"
+        hx-get="{% url 'leave-allocation-approve' %}?filter=upcoming"
+        hx-target="#leaveAllocationApproveBody"
+        hx-trigger="click"
+        style="cursor:pointer;">
+        {% trans "Upcoming" %}
+    </a>
+    <a class="oh-allocation-filter-btn {% if active_filter == 'past' %}oh-allocation-filter-btn--active{% endif %}"
+        hx-get="{% url 'leave-allocation-approve' %}?filter=past"
+        hx-target="#leaveAllocationApproveBody"
+        hx-trigger="click"
+        style="cursor:pointer;">
+        {% trans "Past" %}
+    </a>
+    <a class="oh-allocation-filter-btn {% if active_filter == 'all' %}oh-allocation-filter-btn--active{% endif %}"
+        hx-get="{% url 'leave-allocation-approve' %}?filter=all"
+        hx-target="#leaveAllocationApproveBody"
+        hx-trigger="click"
+        style="cursor:pointer;">
+        {% trans "All Requests" %}
+    </a>
+</div>
 {% if allocation_reqests %}
 <div class="oh-sticky-table h-100">
     <div class="oh-sticky-table__table ">
@@ -7,6 +44,7 @@
                 <div class="oh-sticky-table__th">{% trans "Employee" %}</div>
                 <div class="oh-sticky-table__th">{% trans "Leave Type" %}</div>
                 <div class="oh-sticky-table__th">{% trans "Requested Days" %}</div>
+                <div class="oh-sticky-table__th">{% trans "Date" %}</div>
                 <div class="oh-sticky-table__th" align="center">{% trans "Actions" %}</div>
             </div>
         </div>
@@ -28,6 +66,7 @@
                     </div>
                     <div class="oh-sticky-table__td">{{leave_allocation_request.leave_type_id}}</div>
                     <div class="oh-sticky-table__td">{{leave_allocation_request.requested_days}}</div>
+                    <div class="oh-sticky-table__td dateformat_changer">{{leave_allocation_request.requested_date}}</div>
                     <div class="oh-sticky-table__td" onclick="event.stopPropagation()">
                         <div class="oh-btn-group">
                             {% if leave_allocation_request.status == 'requested' %}
@@ -73,7 +112,7 @@
         {% if allocation_reqests.has_previous %}
             <span class="oh-card-dashboard__title" style="cursor: pointer"
                 hx-target="#leaveAllocationApproveBody"
-                hx-get="{% url 'leave-allocation-approve' %}?{{pd}}&page={{ allocation_reqests.previous_page_number }}"
+                hx-get="{% url 'leave-allocation-approve' %}?filter={{active_filter}}&page={{ allocation_reqests.previous_page_number }}"
                 hx-trigger="click delay:0.3s">
                 <ion-icon name="caret-back-outline" role="img" class="md hydrated" aria-label="caret back outline"></ion-icon>
             </span>
@@ -82,7 +121,7 @@
         {% if allocation_reqests.has_next %}
             <span class="oh-card-dashboard__title float-end ms-2" style="cursor: pointer"
                 hx-target="#leaveAllocationApproveBody"
-                hx-get="{% url 'leave-allocation-approve' %}?{{pd}}&page={{ allocation_reqests.next_page_number }}"
+                hx-get="{% url 'leave-allocation-approve' %}?filter={{active_filter}}&page={{ allocation_reqests.next_page_number }}"
                 hx-trigger="click delay:0.3s">
                 <ion-icon name="caret-forward-outline" role="img" class="md hydrated"
                     aria-label="caret back outline"></ion-icon>

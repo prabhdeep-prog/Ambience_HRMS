@@ -653,8 +653,16 @@ class HorillaPasswordResetView(PasswordResetView):
         EMAIL_BACKEND = getattr(settings, "EMAIL_BACKEND", "")
         if EMAIL_BACKEND and default != EMAIL_BACKEND:
             is_default_backend = False
-        if is_default_backend and not email_backend.configuration:
-            messages.error(self.request, _("Primary mail server is not configured"))
+        has_settings_fallback = bool(getattr(settings, "EMAIL_HOST", None))
+        if is_default_backend and not email_backend.configuration and not has_settings_fallback:
+            messages.error(
+                self.request,
+                _(
+                    "Primary mail server is not configured. "
+                    "Please go to Settings → Mail Servers and add a mail server, "
+                    "or set EMAIL_HOST in your .env file."
+                ),
+            )
             return redirect("forgot-password")
 
         username = form.cleaned_data["email"]
@@ -699,8 +707,16 @@ class EmployeePasswordResetView(PasswordResetView):
             EMAIL_BACKEND = getattr(settings, "EMAIL_BACKEND", "")
             if EMAIL_BACKEND and default != EMAIL_BACKEND:
                 is_default_backend = False
-            if is_default_backend and not email_backend.configuration:
-                messages.error(self.request, _("Primary mail server is not configured"))
+            has_settings_fallback = bool(getattr(settings, "EMAIL_HOST", None))
+            if is_default_backend and not email_backend.configuration and not has_settings_fallback:
+                messages.error(
+                    self.request,
+                    _(
+                        "Primary mail server is not configured. "
+                        "Please go to Settings → Mail Servers and add a mail server, "
+                        "or set EMAIL_HOST in your .env file."
+                    ),
+                )
                 return HorillaRedirect(self.request)
 
             username = form.cleaned_data["email"]
@@ -1555,11 +1571,35 @@ def mail_server_test_email(request):
             # Plain text content (fallback for email clients that do not support HTML)
             text_content = strip_tags(html_content)
 
-            email_backend = ConfiguredEmailBackend()
             emailconfig = DynamicEmailConfiguration.objects.filter(
                 id=instance_id
             ).first()
+            if not emailconfig:
+                messages.error(
+                    request,
+                    _("Mail server configuration not found."),
+                )
+                return HorillaRedirect(request)
+            email_backend = ConfiguredEmailBackend()
             email_backend.configuration = emailconfig
+            # EmailBackend stores host/port/etc at __init__ time; override them
+            # now that we have the specific server config to test.
+            email_backend.host = emailconfig.host
+            email_backend.port = emailconfig.port
+            email_backend.username = emailconfig.username
+            email_backend.password = emailconfig.password
+            email_backend.use_tls = emailconfig.use_tls
+            email_backend.use_ssl = emailconfig.use_ssl
+
+            if not emailconfig.host:
+                messages.error(
+                    request,
+                    _(
+                        "SMTP host is not set on this mail server configuration. "
+                        "Please edit the mail server and fill in the Host field."
+                    ),
+                )
+                return HorillaRedirect(request)
 
             try:
                 msg = EmailMultiAlternatives(

@@ -14,6 +14,7 @@ from django.contrib import messages
 from django.contrib.auth.models import AbstractUser, User
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.forms import PasswordInput
 from django.utils.translation import gettext_lazy as _
 
 from base.horilla_company_manager import HorillaCompanyManager
@@ -63,6 +64,37 @@ def clear_messages(request):
     storage = messages.get_messages(request)
     for message in storage:
         pass
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Custom password field: renders as PasswordInput (masked) in all Django forms
+# and the admin. The stored value is plain-text (same as before); only the
+# *display* changes.  render_value=True keeps the field pre-filled on edit.
+# ──────────────────────────────────────────────────────────────────────────────
+class MaskedPasswordField(models.CharField):
+    """
+    A CharField that automatically uses PasswordInput as its default widget
+    in every ModelForm / Django Admin form.
+
+    • Shows  ••••••••  instead of plain text.
+    • Includes a show/hide toggle button injected via the widget's attrs.
+    • render_value=True means the existing password is re-submitted when the
+      form is saved without touching the field.
+    """
+
+    def formfield(self, **kwargs):
+        kwargs.setdefault(
+            "widget",
+            PasswordInput(
+                render_value=True,
+                attrs={
+                    # data attribute picked up by the JS snippet below
+                    "data-toggle-password": "true",
+                    "style": "padding-right: 2.5rem;",   # room for the eye icon
+                },
+            ),
+        )
+        return super().formfield(**kwargs)
 
 
 class Company(HorillaModel):
@@ -692,19 +724,6 @@ class RotatingShift(HorillaModel):
         if additional_shifts and self.shift1 == self.shift2:
             raise ValidationError(_("Select different shift continuously"))
 
-        #  ---------------- Removed the validation for same shifts to be continously added ----------------
-
-        # if additional_shifts and str(self.shift2.id) == additional_shifts[0]:
-        #     raise ValidationError(_("Select different shift continuously"))
-
-        # if additional_shifts and str(self.shift1.id) == additional_shifts[-1]:
-        #     raise ValidationError(_("Select different shift continuously"))
-
-        # for i in range(len(additional_shifts) - 1):
-        #     if additional_shifts[i] and additional_shifts[i + 1]:
-        #         if additional_shifts[i] == additional_shifts[i + 1]:
-        #             raise ValidationError(_("Select different shift continuously"))
-
     def additional_shifts(self):
         additional_data = self.additional_data
         if additional_data:
@@ -1206,7 +1225,15 @@ class DynamicEmailConfiguration(HorillaModel):
         verbose_name=_("Display Name"),
     )
 
-    password = models.CharField(
+    # ── PASSWORD FIELD (masked) ───────────────────────────────────────────────
+    # MaskedPasswordField is a plain CharField at the database level (no
+    # encryption added here — add django-fernet-fields or similar if you need
+    # encryption at rest).  In every ModelForm / Django Admin form it renders
+    # as <input type="password"> so the value is never visible in plain text.
+    # render_value=True keeps the field pre-filled when editing an existing
+    # record so the password is not accidentally cleared on save.
+    # ─────────────────────────────────────────────────────────────────────────
+    password = MaskedPasswordField(
         null=True,
         max_length=256,
         verbose_name=_("Email Authentication Password"),

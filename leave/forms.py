@@ -566,6 +566,8 @@ class UserLeaveRequestCreationForm(BaseModelForm):
             assigned_leave_types = LeaveType.objects.filter(
                 id__in=available_leaves.values_list("leave_type_id", flat=True)
             )
+            if not assigned_leave_types.exists():
+                assigned_leave_types = LeaveType.objects.all()
             self.fields["leave_type_id"].queryset = assigned_leave_types
         self.fields["leave_type_id"].widget.attrs.update(
             {

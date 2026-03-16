@@ -7,15 +7,15 @@
                     <div class="oh-sticky-table__th">
                         {% trans "Employee" %}
                     </div>
+                    <div class="oh-sticky-table__th">
+                        {% trans "Date" %}
+                    </div>
+                    <div class="oh-sticky-table__th">{% trans "Check-In" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Check-Out" %}</div>
                     {% if not main_dashboard %}
-                        <div class="oh-sticky-table__th">
-                            {% trans "Date" %}
-                        </div>
-                        <div class="oh-sticky-table__th">{% trans "Check-In" %}</div>
                         <div class="oh-sticky-table__th">
                             {% trans "In Date" %}
                         </div>
-                        <div class="oh-sticky-table__th">{% trans "Check-Out" %}</div>
                         <div class="oh-sticky-table__th">
                             {% trans "Out Date" %}
                         </div>
@@ -29,7 +29,9 @@
                     <div class="oh-sticky-table__th">
                         {% trans "At Work" %}
                     </div>
-                    <div class="oh-sticky-table__th oh-sticky-table__right">{% trans "Actions" %}</div>
+                    {% if not main_dashboard %}
+                        <div class="oh-sticky-table__th oh-sticky-table__right">{% trans "Actions" %}</div>
+                    {% endif %}
                 </div>
             </div>
             {% for attendance in validate_attendances %}
@@ -47,16 +49,16 @@
                                 <span class="oh-profile__name oh-text--dark">{{attendance.employee_id}}</span>
                             </div>
                         </div>
+                        <div class="oh-sticky-table__td dateformat_changer">{{attendance.attendance_date}}</div>
+                        <div class="oh-sticky-table__td timeformat_changer">
+                            {{attendance.attendance_clock_in}}
+                        </div>
+                        <div class="oh-sticky-table__td timeformat_changer">
+                            {{attendance.attendance_clock_out}}
+                        </div>
                         {% if not main_dashboard %}
-                            <div class="oh-sticky-table__td dateformat_changer">{{attendance.attendance_date}}</div>
-                            <div class="oh-sticky-table__td timeformat_changer">
-                                {{attendance.attendance_clock_in}}
-                            </div>
                             <div class="oh-sticky-table__td dateformat_changer">
                                 {{attendance.attendance_clock_in_date}}
-                            </div>
-                            <div class="oh-sticky-table__td timeformat_changer">
-                                {{attendance.attendance_clock_out}}
                             </div>
                             <div class="oh-sticky-table__td dateformat_changer">
                                 {{attendance.attendance_clock_out_date}}
@@ -69,16 +71,18 @@
                         <div class="oh-sticky-table__td">
                             {{attendance.attendance_worked_hour}}
                         </div>
-                        <div class="oh-sticky-table__td oh-sticky-table__right">
-                            {% if perms.attendance.change_attendance or request.user|is_reportingmanager %}
-                                <a href='{% url "validate-this-attendance" attendance.id %}' hx-target="#updateAttendanceBody"
-                                    data-req="/attendance/request-attendance-view/?id={{attendance.id}}"
-                                    onclick="event.stopPropagation(); {% if attendance.is_validate_request %}  event.preventDefault(); showSweetAlert($(this).data('req')); {% endif %}"
-                                    class="oh-btn oh-btn--info">
-                                    {% trans "Validate" %}
-                                </a>
-                            {% endif %}
-                        </div>
+                        {% if not main_dashboard %}
+                            <div class="oh-sticky-table__td oh-sticky-table__right">
+                                {% if perms.attendance.change_attendance or request.user|is_reportingmanager %}
+                                    <a href='{% url "validate-this-attendance" attendance.id %}' hx-target="#updateAttendanceBody"
+                                        data-req="/attendance/request-attendance-view/?id={{attendance.id}}"
+                                        onclick="event.stopPropagation(); {% if attendance.is_validate_request %}  event.preventDefault(); showSweetAlert($(this).data('req')); {% endif %}"
+                                        class="oh-btn oh-btn--info">
+                                        {% trans "Validate" %}
+                                    </a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
 
                     </div>
                 </div>

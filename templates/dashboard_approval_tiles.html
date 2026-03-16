@@ -1,0 +1,194 @@
+{% load static basefilters horillafilters employee_filter i18n %}
+{% load accessibility_filters %}
+
+{% if "leave"|app_installed and not 'leave_request_approve' in charts %}
+    {% if perms.leave.change_leaverequest or request.user|is_reportingmanager %}
+        <div class="col-12 oh-card-dashboard--moveable" id="LeaveApprove">
+            <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--success">
+                <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                    <span class="oh-card-dashboard__title">
+                        <ion-icon name="calendar-clear-outline" class="me-1 align-middle"></ion-icon>
+                        {% trans "Pending Leave Approvals" %}
+                    </span>
+                    <span class="float-end chart_close_button" role="button" data-chart="leave_request_approve"
+                        hx-post="{% url 'dashboard-components-toggle' %}?chart_id=leave_request_approve"
+                        hx-target="#LeaveApprove" hx-swap="outerHTML">
+                        <i class="material-icons fw-lighter fs-5">close</i>
+                    </span>
+                </div>
+                <div class="oh-card-dashboard__body" id="leaveApproveCardBody"
+                    hx-get="{% url 'leave-request-and-approve' %}" hx-trigger="load">
+                    <div class="animated-background"></div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endif %}
+
+{% if not 'shift_request_approve' in charts %}
+    {% if perms.base.change_shiftrequest or request.user|is_reportingmanager %}
+        <div class="col-12 oh-card-dashboard--moveable" id="shiftRequestApprove">
+            <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--warning">
+                <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                    <span class="oh-card-dashboard__title">
+                        <ion-icon name="swap-horizontal-outline" class="me-1 align-middle"></ion-icon>
+                        {% trans "Pending Shift Requests" %}
+                    </span>
+                    <span class="float-end chart_close_button" role="button" data-chart="shift_request_approve"
+                        hx-post="{% url 'dashboard-components-toggle' %}?chart_id=shift_request_approve"
+                        hx-target="#shiftRequestApprove" hx-swap="outerHTML">
+                        <i class="material-icons fw-lighter fs-5">close</i>
+                    </span>
+                </div>
+                <div class="oh-card-dashboard__body" id="shiftRequestApproveBody"
+                    hx-get="{% url 'dashboard-shift-request' %}" hx-trigger="load">
+                    <div class="animated-background"></div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endif %}
+
+{% if not 'work_type_request_approve' in charts %}
+    {% if perms.base.change_worktyperequest or request.user|is_reportingmanager %}
+        <div class="col-12 oh-card-dashboard--moveable" id="WorkTypeRequestApprove">
+            <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--neutral">
+                <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                    <span class="oh-card-dashboard__title">
+                        <ion-icon name="layers-outline" class="me-1 align-middle"></ion-icon>
+                        {% trans "Pending Work Type Requests" %}
+                    </span>
+                    <span class="float-end chart_close_button" role="button" data-chart="work_type_request_approve"
+                        hx-post="{% url 'dashboard-components-toggle' %}?chart_id=work_type_request_approve"
+                        hx-target="#WorkTypeRequestApprove" hx-swap="outerHTML">
+                        <i class="material-icons fw-lighter fs-5">close</i>
+                    </span>
+                </div>
+                <div class="oh-card-dashboard__body" id="WorkTypeRequestApproveBody"
+                    hx-get="{% url 'dashboard-work-type-request' %}" hx-trigger="load">
+                    <div class="animated-background"></div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endif %}
+
+{% if "attendance"|app_installed %}
+    {% if not 'attendance_validate' in charts %}
+        {% if perms.attendance.change_attendance or request.user|is_reportingmanager %}
+            <div class="col-12 oh-card-dashboard--moveable" id="AttendanceValidate">
+                <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--danger">
+                    <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                        <span class="oh-card-dashboard__title">
+                            <ion-icon name="finger-print-outline" class="me-1 align-middle"></ion-icon>
+                            {% trans "Pending Attendance Approvals" %}
+                        </span>
+                        <span class="float-end chart_close_button" role="button" data-chart="attendance_validate"
+                            hx-post="{% url 'dashboard-components-toggle' %}?chart_id=attendance_validate"
+                            hx-target="#AttendanceValidate" hx-swap="outerHTML">
+                            <i class="material-icons fw-lighter fs-5">close</i>
+                        </span>
+                    </div>
+                    <div class="oh-card-dashboard__body" id="attendanceValidateCardBody"
+                        hx-get="{% url 'dashboard-validate-attendances' %}" hx-trigger="load">
+                        <div class="animated-background"></div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
+
+    {% if not 'overtime_approve' in charts %}
+        {% if perms.attendance.change_attendance or request.user|is_reportingmanager %}
+            <div class="col-12 oh-card-dashboard--moveable" id="OTApprove">
+                <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--warning" id="OTApproveTarget">
+                    <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                        <span class="oh-card-dashboard__title">
+                            <ion-icon name="time-outline" class="me-1 align-middle"></ion-icon>
+                            {% trans "Overtime Awaiting Approval" %}
+                        </span>
+                        <span class="float-end chart_close_button" role="button" data-chart="overtime_approve"
+                            hx-post="{% url 'dashboard-components-toggle' %}?chart_id=overtime_approve"
+                            hx-target="#OTApprove" hx-swap="outerHTML">
+                            <i class="material-icons fw-lighter fs-5">close</i>
+                        </span>
+                    </div>
+                    <div class="oh-card-dashboard__body" id="OTApproveBody"
+                        hx-get="{% url 'dashboard-approve-overtimes' %}" hx-trigger="load">
+                        <div class="animated-background"></div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
+{% endif %}
+
+{% if "leave"|app_installed and not 'leave_allocation_approve' in charts %}
+    {% if perms.leave.change_leaveallocationrequest or request.user|is_reportingmanager %}
+        <div class="col-12 oh-card-dashboard--moveable" id="LeaveAllocationApprove">
+            <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--success">
+                <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                    <span class="oh-card-dashboard__title">
+                        <ion-icon name="gift-outline" class="me-1 align-middle"></ion-icon>
+                        {% trans "Leave Allocation Requests" %}
+                    </span>
+                    <span class="float-end chart_close_button" role="button" data-chart="leave_allocation_approve"
+                        hx-post="{% url 'dashboard-components-toggle' %}?chart_id=leave_allocation_approve"
+                        hx-target="#LeaveAllocationApprove" hx-swap="outerHTML">
+                        <i class="material-icons fw-lighter fs-5">close</i>
+                    </span>
+                </div>
+                <div class="oh-card-dashboard__body" id="leaveAllocationApproveBody"
+                    hx-get="{% url 'leave-allocation-approve' %}" hx-trigger="load">
+                    <div class="animated-background"></div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endif %}
+
+{% if "pms"|app_installed and not 'feedback_answer' in charts %}
+    <div class="col-12 oh-card-dashboard--moveable" id="feedbackAnswer">
+        <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--neutral">
+            <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                <span class="oh-card-dashboard__title">
+                    <ion-icon name="chatbox-ellipses-outline" class="me-1 align-middle"></ion-icon>
+                    {% trans "Feedback Awaiting Response" %}
+                </span>
+                <span class="float-end chart_close_button" role="button" data-chart="feedback_answer"
+                    hx-post="{% url 'dashboard-components-toggle' %}?chart_id=feedback_answer"
+                    hx-target="#feedbackAnswer" hx-swap="outerHTML">
+                    <i class="material-icons fw-lighter fs-5">close</i>
+                </span>
+            </div>
+            <div class="oh-card-dashboard__body" id="feedbackAnswerCardBody"
+                hx-get="{% url 'dashboard-feedback-answer' %}" hx-trigger="load">
+                <div class="animated-background"></div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{% if "asset"|app_installed and not 'asset_request_approve' in charts %}
+    {% if perms.asset.view_assetrequest %}
+        <div class="col-12 oh-card-dashboard--moveable" id="assetRequestApprove">
+            <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--neutral">
+                <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                    <span class="oh-card-dashboard__title">
+                        <ion-icon name="desktop-outline" class="me-1 align-middle"></ion-icon>
+                        {% trans "Pending Asset Requests" %}
+                    </span>
+                    <span class="float-end chart_close_button" role="button" data-chart="asset_request_approve"
+                        hx-post="{% url 'dashboard-components-toggle' %}?chart_id=asset_request_approve"
+                        hx-target="#assetRequestApprove" hx-swap="outerHTML">
+                        <i class="material-icons fw-lighter fs-5">close</i>
+                    </span>
+                </div>
+                <div class="oh-card-dashboard__body" id="dashboardAssetRequests"
+                    hx-get="{% url 'asset-dashboard-requests' %}" hx-trigger="load">
+                    <div class="animated-background"></div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endif %}

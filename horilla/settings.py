@@ -32,6 +32,9 @@ env = environ.Env(
     ),
     ALLOWED_HOSTS=(list, ["*"]),
     CSRF_TRUSTED_ORIGINS=(list, ["http://localhost:8000"]),
+    EMAIL_PORT=(int, 587),
+    EMAIL_USE_TLS=(bool, True),
+    EMAIL_USE_SSL=(bool, False),
 )
 
 env.read_env(os.path.join(BASE_DIR, ".env"), overwrite=True)
@@ -188,6 +191,25 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media/")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# ---------------------------------------------------------------------------
+# Email / SMTP Configuration
+# ---------------------------------------------------------------------------
+# Primary approach: configure a mail server via Admin > Settings > Mail Servers.
+# Fallback approach: set the variables below in your .env file to use a fixed
+# SMTP configuration without creating a DB record.
+#
+# Horilla's custom backend reads DB config first, then falls back to these.
+# ---------------------------------------------------------------------------
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND", default="base.backends.ConfiguredEmailBackend"
+)
+EMAIL_HOST = env("EMAIL_HOST", default=None)
+EMAIL_PORT = env("EMAIL_PORT")          # int, default 587
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default=None)
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default=None)
+EMAIL_USE_TLS = env("EMAIL_USE_TLS")    # bool, default True
+EMAIL_USE_SSL = env("EMAIL_USE_SSL")    # bool, default False
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@horilla.com")
 
 MESSAGE_TAGS = {
     messages.DEBUG: "oh-alert--warning",

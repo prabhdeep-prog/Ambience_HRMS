@@ -17,19 +17,21 @@
 </style>
 
 {% if primary_mail_not_exist %}
-    <div class="alert alert-warning" role="alert">
-        {% trans "Primary mail is not configured! " %}<img id="blink" src="{% static 'images/ui/email.png' %}" width="24"
-            height="24">
+    <div class="alert alert-warning" role="alert" style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:1rem;">
+        <img src="{% static 'images/ui/email.png' %}" width="22" height="22" style="margin-top:2px;flex-shrink:0;">
+        <div style="flex:1;min-width:200px;">
+            <strong>{% trans "No primary mail server is configured." %}</strong><br>
+            <span style="font-size:.92em;">
+                {% trans "Password reset emails and system notifications cannot be sent. To fix this:" %}
+                <ol style="margin:.4rem 0 0 1.2rem;padding:0;">
+                    <li>{% trans "Click the <strong>Create</strong> button above to add an SMTP mail server." %}</li>
+                    <li>{% trans "Fill in your SMTP host, port, username and password." %}</li>
+                    <li>{% trans "Check the <strong>Primary Mail Server</strong> checkbox." %}</li>
+                    <li>{% trans "Save, then use the <strong>Test email</strong> button to verify delivery." %}</li>
+                </ol>
+            </span>
+        </div>
     </div>
-    <script type="text/javascript">
-        var blink =
-            document.getElementById('blink');
-
-        setInterval(function () {
-            blink.style.opacity =
-                (blink.style.opacity == 0 ? 1 : 0);
-        }, 800);
-    </script>
 {% endif %}
 <div class="oh-sticky-table">
     <div class="oh-sticky-table__table oh-table--sortable">
