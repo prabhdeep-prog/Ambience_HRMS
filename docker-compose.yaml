@@ -1,39 +1,51 @@
 services:
+
   server:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - 8000:8000
+      - "8000:8000"
     restart: unless-stopped
-    environment:
-      DATABASE_URL: "postgres://postgres:postgres@db:5432/horilla"
+    env_file:
+      - .env
     command: sh ./entrypoint.sh
     volumes:
-      - ./horilla:/app/horilla
+      # Media uploads only — source code is baked into the image at build time
       - ./media:/app/media
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   db:
     image: postgres:16-bullseye
-    environment:
-      POSTGRES_DB: horilla
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
-      PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - 5432:5432
     restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB:          "${POSTGRES_DB}"
+      POSTGRES_USER:        "${POSTGRES_USER}"
+      POSTGRES_PASSWORD:    "${POSTGRES_PASSWORD}"
+      # Require scram-sha-256 for all host connections
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+      PGDATA:               /var/lib/postgresql/data/pgdata
+    ports:
+      # Bind to localhost only — the port is not reachable from outside the host
+      - "127.0.0.1:5432:5432"
     volumes:
       - horilla-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
 volumes:
   horilla-data:

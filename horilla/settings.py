@@ -25,19 +25,26 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 env = environ.Env(
-    DEBUG=(bool, True),
-    SECRET_KEY=(
-        str,
-        "django-insecure-j8op9)1q8$1&0^s&p*_0%d#pr@w9qj@1o=3#@d=a(^@9@zd@%j",
-    ),
-    ALLOWED_HOSTS=(list, ["*"]),
+    # SECRET_KEY has no default — Django raises ImproperlyConfigured if missing.
+    # Generate a value with:
+    #   python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+    DEBUG=(bool, False),
+    ALLOWED_HOSTS=(list, ["127.0.0.1", "localhost"]),
     CSRF_TRUSTED_ORIGINS=(list, ["http://localhost:8000"]),
 )
 
 env.read_env(os.path.join(BASE_DIR, ".env"), overwrite=True)
 
 # SECURITY WARNING: keep the secret key used in production secret!
+# Loaded strictly from the environment — no fallback, fails fast if unset.
 SECRET_KEY = env("SECRET_KEY")
+
+# Fernet keys for encrypting biometric device credentials at rest.
+# django-fernet-fields reads this list; the first key encrypts new values,
+# all keys are tried for decryption (enables zero-downtime key rotation).
+# Generate a key with:
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+FERNET_KEYS = [env("FIELD_ENCRYPTION_KEY", default="")]
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
@@ -246,6 +253,25 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
+
+# ── Django REST Framework ─────────────────────────────────────────────────────
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "horilla_api.auth.SwaggerAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon":      "100/day",
+        "user":      "1000/day",
+        "login":     "5/minute",
+        "login_day": "20/day",
+    },
+}
 
 # Production settings
 if not DEBUG:

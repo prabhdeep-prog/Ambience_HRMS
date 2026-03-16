@@ -1,23 +1,28 @@
-from django.conf import settings
 from django.urls import include, path
 from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
-from rest_framework import permissions
 
+from horilla_api.permissions import SwaggerPermission
 from horilla_api.schema import OrderedTagSchemaGenerator
 
-# Create schema view for Swagger and ReDoc
+# Create schema view for Swagger and ReDoc.
+# public=False tells drf-yasg to honour the permission_classes check;
+# unauthenticated browsers are redirected to the DRF login page.
 schema_view = get_schema_view(
     openapi.Info(
         title="Horilla API",
         default_version="v1",
-        description="API documentation for Horilla HRMS. Click the 'Authorize' button at the top to authenticate.",
+        description=(
+            "API documentation for Horilla HRMS.\n\n"
+            "Click **Authorize** and enter your JWT token as: `Bearer <token>`\n\n"
+            "Obtain a token via `POST /api/auth/`"
+        ),
         terms_of_service="https://www.horilla.com/terms/",
         contact=openapi.Contact(email="contact@horilla.com"),
         license=openapi.License(name="BSD License"),
     ),
-    public=True,
-    permission_classes=(permissions.AllowAny,),
+    public=False,
+    permission_classes=(SwaggerPermission,),
     generator_class=OrderedTagSchemaGenerator,
 )
 
