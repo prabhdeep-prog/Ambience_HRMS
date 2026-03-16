@@ -402,6 +402,7 @@ def leave_request_creation(request, type_id=None, emp_id=None):
         previous_data = request_copy.urlencode()
 
     form = LeaveRequestCreationForm()
+    assigned_leave_types = LeaveType.objects.all()
     if request:
         employee_qs = form.fields["employee_id"].queryset
         post_emp_id = request.POST.get("employee_id")
@@ -411,13 +412,11 @@ def leave_request_creation(request, type_id=None, emp_id=None):
             else employee_qs.first()
         )
 
-        if employee:
+        if request.method == "POST" and employee:
             leave_type_ids = employee.available_leave.values_list(
                 "leave_type_id", flat=True
             )
             assigned_leave_types = LeaveType.objects.filter(id__in=leave_type_ids)
-
-            form.fields["leave_type_id"].queryset = assigned_leave_types
 
     if type_id and emp_id:
         initial_data = {
@@ -5307,14 +5306,42 @@ def leave_request_and_approve(request):
 
 @login_required
 def leave_allocation_approve(request):
+    today = date.today()
+    current_year_start = today.replace(month=1, day=1)
     previous_data = request.GET.urlencode()
     page_number = request.GET.get("page")
-    allocation_reqests = LeaveAllocationRequest.objects.filter(
-        status="requested", employee_id__is_active=True
+    filter_type = request.GET.get("filter", "default")
+
+    base_qs = LeaveAllocationRequest.objects.filter(employee_id__is_active=True)
+    base_qs = filtersubordinates(
+        request, base_qs, "leave.view_leaveallocationrequest"
     )
-    allocation_reqests = filtersubordinates(
-        request, allocation_reqests, "leave.view_leaveallocationrequest"
-    )
+
+    if filter_type == "pending":
+        allocation_reqests = base_qs.filter(status="requested").order_by(
+            "requested_date"
+        )
+    elif filter_type == "today":
+        allocation_reqests = base_qs.filter(requested_date=today).order_by(
+            "requested_date"
+        )
+    elif filter_type == "upcoming":
+        allocation_reqests = base_qs.filter(requested_date__gt=today).order_by(
+            "requested_date"
+        )
+    elif filter_type == "past":
+        allocation_reqests = base_qs.filter(requested_date__lt=today).order_by(
+            "-requested_date"
+        )
+    elif filter_type == "all":
+        allocation_reqests = base_qs.order_by("-requested_date")
+    else:
+        filter_type = "default"
+        allocation_reqests = base_qs.filter(
+            status="requested",
+            requested_date__gte=current_year_start,
+        ).order_by("requested_date")
+
     allocation_reqests = paginator_qry(allocation_reqests, page_number)
     allocation_reqests_ids = json.dumps(
         [instance.id for instance in allocation_reqests]
@@ -5326,6 +5353,7 @@ def leave_allocation_approve(request):
             "allocation_reqests": allocation_reqests,
             "reqests_ids": allocation_reqests_ids,
             "pd": previous_data,
-            # "current_date":date.today(),
+            "active_filter": filter_type,
+            "today": today,
         },
     )

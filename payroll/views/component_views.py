@@ -931,7 +931,7 @@ def create_payslip(request, new_post_data=None):
                 return HorillaRedirect(
                     request,
                     redirect_to=reverse(
-                        "view-payslip", kwargs={"payslip_id": payslip.pk}
+                        "view-created-payslip", kwargs={"payslip_id": payslip.pk}
                     ),
                 )
 

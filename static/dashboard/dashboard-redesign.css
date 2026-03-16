@@ -1,0 +1,724 @@
+/* =============================================================
+   Horilla HRMS — Dashboard Redesign
+   Professional enterprise layout: KPIs → Approvals → Analytics → Insights → Updates
+   ============================================================= */
+
+/* ----------------------------------------------------------------
+   CSS Custom Properties (theme-aware via body class)
+   ---------------------------------------------------------------- */
+:root {
+  --hrd-radius:        12px;
+  --hrd-radius-sm:      8px;
+  --hrd-shadow-card:   0 1px 3px 0 rgba(0,0,0,.07), 0 1px 2px -1px rgba(0,0,0,.05);
+  --hrd-shadow-hover:  0 4px 16px 0 rgba(0,0,0,.10);
+  --hrd-transition:    all .22s cubic-bezier(.4,0,.2,1);
+
+  /* Palette */
+  --hrd-indigo:        #4f46e5;
+  --hrd-indigo-light:  #eef2ff;
+  --hrd-emerald:       #059669;
+  --hrd-emerald-light: #ecfdf5;
+  --hrd-amber:         #d97706;
+  --hrd-amber-light:   #fffbeb;
+  --hrd-rose:          #e11d48;
+  --hrd-rose-light:    #fff1f2;
+  --hrd-violet:        #7c3aed;
+  --hrd-violet-light:  #f5f3ff;
+  --hrd-sky:           #0284c7;
+  --hrd-sky-light:     #f0f9ff;
+  --hrd-slate-50:      #f8fafc;
+  --hrd-slate-100:     #f1f5f9;
+  --hrd-slate-200:     #e2e8f0;
+  --hrd-slate-400:     #94a3b8;
+  --hrd-slate-500:     #64748b;
+  --hrd-slate-700:     #334155;
+  --hrd-slate-900:     #0f172a;
+  --hrd-white:         #ffffff;
+
+  /* Section header accent */
+  --hrd-section-border: #e2e8f0;
+}
+
+/* Dark mode palette override */
+body[data-theme="dark"],
+body.dark {
+  --hrd-white:       #1e2533;
+  --hrd-slate-50:    #151b27;
+  --hrd-slate-100:   #1a2235;
+  --hrd-slate-200:   #252f42;
+  --hrd-slate-700:   #c5d0e4;
+  --hrd-slate-900:   #e2e8f0;
+  --hrd-section-border: #252f42;
+  --hrd-shadow-card: 0 1px 3px 0 rgba(0,0,0,.3);
+  --hrd-shadow-hover: 0 4px 16px 0 rgba(0,0,0,.4);
+}
+
+/* ----------------------------------------------------------------
+   Dashboard Container
+   ---------------------------------------------------------------- */
+.hrd-dashboard {
+  padding: 1.75rem 0 3.5rem;
+  max-width: 100%;
+}
+
+/* ----------------------------------------------------------------
+   Section Label (inline heading above a row of cards)
+   ---------------------------------------------------------------- */
+.hrd-section-label {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--hrd-slate-500);
+  margin-bottom: 1rem;
+  padding-bottom: .5rem;
+  border-bottom: 2px solid var(--hrd-section-border);
+}
+
+.hrd-section-label ion-icon {
+  font-size: 1rem;
+}
+
+/* ----------------------------------------------------------------
+   KPI Row (top executive metrics)
+   ---------------------------------------------------------------- */
+.hrd-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.hrd-kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--hrd-white);
+  border-radius: var(--hrd-radius);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--hrd-shadow-card);
+  border: 1px solid var(--hrd-section-border);
+  text-decoration: none !important;
+  color: inherit;
+  transition: var(--hrd-transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.hrd-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: var(--hrd-radius) var(--hrd-radius) 0 0;
+}
+
+.hrd-kpi-card:hover {
+  box-shadow: var(--hrd-shadow-hover);
+  transform: translateY(-2px);
+  color: inherit;
+  text-decoration: none !important;
+}
+
+.hrd-kpi-card__icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.hrd-kpi-card__info {
+  min-width: 0;
+}
+
+.hrd-kpi-card__value {
+  font-size: 1.85rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--hrd-slate-900);
+  min-height: 2.2rem;
+}
+
+.hrd-kpi-card__label {
+  font-size: .78rem;
+  color: var(--hrd-slate-500);
+  font-weight: 500;
+  margin-top: .2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* KPI colour variants */
+.hrd-kpi-card--indigo::before  { background: var(--hrd-indigo); }
+.hrd-kpi-card--indigo .hrd-kpi-card__icon-wrap {
+  background: var(--hrd-indigo-light);
+  color: var(--hrd-indigo);
+}
+
+.hrd-kpi-card--emerald::before { background: var(--hrd-emerald); }
+.hrd-kpi-card--emerald .hrd-kpi-card__icon-wrap {
+  background: var(--hrd-emerald-light);
+  color: var(--hrd-emerald);
+}
+
+.hrd-kpi-card--amber::before   { background: var(--hrd-amber); }
+.hrd-kpi-card--amber .hrd-kpi-card__icon-wrap {
+  background: var(--hrd-amber-light);
+  color: var(--hrd-amber);
+}
+
+.hrd-kpi-card--rose::before    { background: var(--hrd-rose); }
+.hrd-kpi-card--rose .hrd-kpi-card__icon-wrap {
+  background: var(--hrd-rose-light);
+  color: var(--hrd-rose);
+}
+
+.hrd-kpi-card--violet::before  { background: var(--hrd-violet); }
+.hrd-kpi-card--violet .hrd-kpi-card__icon-wrap {
+  background: var(--hrd-violet-light);
+  color: var(--hrd-violet);
+}
+
+.hrd-kpi-card--sky::before     { background: var(--hrd-sky); }
+.hrd-kpi-card--sky .hrd-kpi-card__icon-wrap {
+  background: var(--hrd-sky-light);
+  color: var(--hrd-sky);
+}
+
+/* Strip anchor decoration from count spans loaded via HTMX */
+.hrd-kpi-card__value a,
+.hrd-kpi-card__value span {
+  text-decoration: none !important;
+  color: inherit;
+}
+
+/* Loading pulse dot shown before HTMX loads count */
+.hrd-pulse-dot {
+  width: 2rem; height: .75rem;
+  background: var(--hrd-slate-200);
+  border-radius: 4px;
+  animation: hrd-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes hrd-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .35; }
+}
+
+/* ----------------------------------------------------------------
+   Section Card (wraps an entire dashboard section)
+   ---------------------------------------------------------------- */
+.hrd-section-card {
+  background: var(--hrd-white);
+  border-radius: var(--hrd-radius);
+  border: 1px solid var(--hrd-section-border);
+  box-shadow: var(--hrd-shadow-card);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.hrd-section-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.1rem;
+  padding-bottom: .85rem;
+  border-bottom: 1px solid var(--hrd-section-border);
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.hrd-section-card__title {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--hrd-slate-900);
+}
+
+.hrd-section-card__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+/* Icon colour modifiers */
+.hrd-icon--primary { background: var(--hrd-indigo-light); color: var(--hrd-indigo); }
+.hrd-icon--success { background: var(--hrd-emerald-light); color: var(--hrd-emerald); }
+.hrd-icon--warning { background: var(--hrd-amber-light); color: var(--hrd-amber); }
+.hrd-icon--danger  { background: var(--hrd-rose-light); color: var(--hrd-rose); }
+.hrd-icon--info    { background: var(--hrd-sky-light); color: var(--hrd-sky); }
+.hrd-icon--violet  { background: var(--hrd-violet-light); color: var(--hrd-violet); }
+
+/* ----------------------------------------------------------------
+   Badges
+   ---------------------------------------------------------------- */
+.hrd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .68rem;
+  font-weight: 700;
+  padding: .25rem .65rem;
+  border-radius: 99px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.hrd-badge--warning {
+  background: var(--hrd-amber-light);
+  color: var(--hrd-amber);
+}
+.hrd-badge--success {
+  background: var(--hrd-emerald-light);
+  color: var(--hrd-emerald);
+}
+.hrd-badge--danger {
+  background: var(--hrd-rose-light);
+  color: var(--hrd-rose);
+}
+.hrd-badge--info {
+  background: var(--hrd-sky-light);
+  color: var(--hrd-sky);
+}
+
+/* ----------------------------------------------------------------
+   View All link
+   ---------------------------------------------------------------- */
+.hrd-link-sm {
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--hrd-indigo);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: var(--hrd-transition);
+}
+.hrd-link-sm:hover { color: var(--hrd-sky); text-decoration: underline; }
+
+/* ----------------------------------------------------------------
+   Icon Button (announcement add, etc.)
+   ---------------------------------------------------------------- */
+.hrd-btn-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--hrd-slate-200);
+  background: var(--hrd-slate-50);
+  color: var(--hrd-slate-700);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: var(--hrd-transition);
+  padding: 0;
+}
+.hrd-btn-icon:hover {
+  background: var(--hrd-indigo-light);
+  color: var(--hrd-indigo);
+  border-color: var(--hrd-indigo);
+}
+
+/* ----------------------------------------------------------------
+   Approval Center — restyled tiles within section card
+   ---------------------------------------------------------------- */
+/* Override base tile styles for tiles inside approvalTileContainer */
+#approvalTileContainer .oh-card-dashboard {
+  border-radius: var(--hrd-radius-sm);
+  border-top-width: 3px;
+  min-height: unset !important;
+  height: auto !important;
+}
+
+#approvalTileContainer .oh-card-dashboard--moveable {
+  padding: 0 8px 16px 8px;
+}
+
+/* Compact the header in approval tiles */
+#approvalTileContainer .oh-card-dashboard__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .5rem;
+}
+
+#approvalTileContainer .oh-card-dashboard__title {
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--hrd-slate-700);
+}
+
+/* Override fixed height on approval body */
+#approvalTileContainer .oh-card-dashboard__body {
+  height: auto !important;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+/* ----------------------------------------------------------------
+   Empty State Component
+   ---------------------------------------------------------------- */
+.hrd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  gap: .75rem;
+  color: var(--hrd-slate-400);
+}
+
+.hrd-empty__icon {
+  font-size: 2.5rem;
+  opacity: .5;
+}
+
+.hrd-empty__title {
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--hrd-slate-500);
+}
+
+.hrd-empty__subtitle {
+  font-size: .78rem;
+  color: var(--hrd-slate-400);
+  max-width: 220px;
+}
+
+/* ----------------------------------------------------------------
+   Skeleton Loaders
+   ---------------------------------------------------------------- */
+.hrd-skeleton-list {
+  padding: .5rem 0;
+}
+
+.hrd-skeleton-list::before,
+.hrd-skeleton-list::after,
+.hrd-skeleton-list > * {
+  display: block;
+  height: .75rem;
+  border-radius: 4px;
+  background: var(--hrd-slate-200);
+  margin-bottom: .6rem;
+  animation: hrd-pulse 1.4s ease-in-out infinite;
+}
+
+/* Mimic list rows */
+.hrd-skeleton-list {
+  position: relative;
+}
+.hrd-skeleton-list::before {
+  content: '';
+  width: 60%;
+}
+.hrd-skeleton-list::after {
+  content: '';
+  width: 80%;
+  animation-delay: .2s;
+}
+
+/* ----------------------------------------------------------------
+   Analytics section: remove double-wrap padding
+   ---------------------------------------------------------------- */
+.hrd-section-card .oh-dashboard__movable-cards {
+  margin-left: -.25rem;
+  margin-right: -.25rem;
+}
+
+.hrd-section-card .oh-card-dashboard--moveable {
+  padding: 0 .4rem .85rem .4rem;
+}
+
+/* Keep chart cards looking clean within the wrapper */
+.hrd-section-card .oh-card-dashboard--no-scale {
+  border-radius: var(--hrd-radius-sm);
+}
+
+/* ----------------------------------------------------------------
+   Announcements — tighten up spacing
+   ---------------------------------------------------------------- */
+.hrd-section-card--announcements .announcement_title {
+  border-radius: var(--hrd-radius-sm);
+  border: 1px solid var(--hrd-section-border);
+  padding: .6rem .8rem;
+  margin-bottom: .6rem;
+  margin-right: 0;
+  font-size: .85rem;
+  transition: var(--hrd-transition);
+}
+
+.hrd-section-card--announcements .announcement_title:hover {
+  border-color: var(--hrd-indigo);
+  background: var(--hrd-indigo-light);
+}
+
+/* ----------------------------------------------------------------
+   Employee Insights — on-leave list
+   ---------------------------------------------------------------- */
+.hrd-section-card .oh-card-dashboard__user-item {
+  padding-top: .5rem;
+  padding-bottom: .5rem;
+}
+
+/* ----------------------------------------------------------------
+   Section divider label (used inside tile containers)
+   ---------------------------------------------------------------- */
+.hrd-tile-section-break {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .5rem .5rem .75rem;
+  color: var(--hrd-slate-500);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.hrd-tile-section-break ion-icon { font-size: .95rem; }
+
+/* ----------------------------------------------------------------
+   Scrollbar styling for insight panels
+   ---------------------------------------------------------------- */
+.hrd-section-card [style*="overflow-y:auto"]::-webkit-scrollbar,
+#approvalTileContainer .oh-card-dashboard__body::-webkit-scrollbar {
+  width: 4px;
+}
+.hrd-section-card [style*="overflow-y:auto"]::-webkit-scrollbar-track,
+#approvalTileContainer .oh-card-dashboard__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hrd-section-card [style*="overflow-y:auto"]::-webkit-scrollbar-thumb,
+#approvalTileContainer .oh-card-dashboard__body::-webkit-scrollbar-thumb {
+  background: var(--hrd-slate-200);
+  border-radius: 99px;
+}
+
+/* ----------------------------------------------------------------
+   Responsive overrides
+   ---------------------------------------------------------------- */
+@media (max-width: 767.98px) {
+  .hrd-kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hrd-kpi-card {
+    padding: 1rem;
+    gap: .75rem;
+  }
+  .hrd-kpi-card__value { font-size: 1.5rem; }
+  .hrd-kpi-card__icon-wrap { width: 40px; height: 40px; font-size: 1.15rem; }
+  .hrd-section-card { padding: 1rem; }
+}
+
+@media (max-width: 480px) {
+  .hrd-kpi-row {
+    grid-template-columns: 1fr 1fr;
+    gap: .6rem;
+  }
+}
+
+/* ----------------------------------------------------------------
+   Drag-and-drop cursor affordance for moveable analytics tiles
+   ---------------------------------------------------------------- */
+#tileContainer .oh-card-dashboard--moveable {
+  cursor: grab;
+}
+#tileContainer .oh-card-dashboard--moveable:active {
+  cursor: grabbing;
+}
+
+/* ----------------------------------------------------------------
+   Approval Center — Table Overrides
+   Each tile is now full-width (col-12), giving tables ~850 px.
+   table-layout:auto lets the browser size each column to its content.
+   No horizontal scroll, no character-breaking, all columns visible.
+   ---------------------------------------------------------------- */
+
+/* 1. Each approval card body scrolls vertically; no horizontal scroll */
+#approvalTileContainer .oh-sticky-table {
+  overflow-x: hidden !important;
+  overflow-y: auto;
+  max-height: 300px;
+  border: none;
+  max-width: 100%;
+}
+#approvalTileContainer .oh-card-dashboard__body {
+  height: auto !important;
+  max-height: 320px;
+  overflow-x: hidden !important;
+  overflow-y: auto;
+}
+
+/* 2. Table fills full tile width; auto layout sizes each column naturally */
+#approvalTileContainer .oh-sticky-table__table {
+  width: 100% !important;
+  table-layout: auto !important;
+}
+
+/* 3. All cells: single line, no wrapping, no sticky positioning */
+#approvalTileContainer .oh-sticky-table__td,
+#approvalTileContainer .oh-sticky-table__th,
+#approvalTileContainer .oh-sticky-table__sd {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-break: normal !important;
+  padding: .55rem .75rem !important;
+  vertical-align: middle !important;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  right: auto !important;
+  z-index: auto !important;
+  border-right: none !important;
+  width: auto !important;
+}
+
+/* 4. Actions column: never clip buttons */
+#approvalTileContainer .oh-sticky-table__th:last-child,
+#approvalTileContainer .oh-sticky-table__td:last-child,
+#approvalTileContainer .oh-sticky-table__right {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  position: relative !important;
+  right: auto !important;
+  background-color: transparent !important;
+}
+
+/* 5. Header row */
+#approvalTileContainer .oh-sticky-table__th {
+  font-size: .75rem !important;
+  font-weight: 700 !important;
+  color: var(--hrd-slate-500) !important;
+  text-transform: uppercase !important;
+  letter-spacing: .05em !important;
+  background: var(--hrd-slate-50) !important;
+  border-bottom: 2px solid var(--hrd-section-border) !important;
+}
+#approvalTileContainer .oh-sticky-table__thead div.oh-sticky-table__th:first-child {
+  left: auto !important;
+  border-right: none !important;
+  z-index: auto !important;
+}
+
+/* 6. Action buttons */
+#approvalTileContainer .oh-btn-group {
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  gap: 4px !important;
+}
+#approvalTileContainer .oh-btn-group .oh-btn {
+  width: auto !important;
+  min-width: unset !important;
+  padding: .3rem .6rem !important;
+  font-size: .82rem !important;
+}
+
+/* 7. Row hover */
+#approvalTileContainer .oh-sticky-table__tr {
+  transition: background-color .15s ease;
+}
+#approvalTileContainer .oh-sticky-table__tr:hover {
+  background-color: var(--hrd-slate-50);
+}
+
+/* 8. Profile avatars */
+#approvalTileContainer .oh-profile--md {
+  gap: .4rem;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+#approvalTileContainer .oh-profile--md .oh-profile__avatar {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px;
+  flex-shrink: 0;
+}
+#approvalTileContainer .oh-profile--md .oh-profile__image {
+  width: 28px !important;
+  height: 28px !important;
+}
+#approvalTileContainer .oh-profile__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* 9. Pagination */
+#approvalTileContainer .oh-pagination__page {
+  font-size: .78rem;
+  color: var(--hrd-slate-500);
+}
+
+/* 10. Empty state */
+#approvalTileContainer .oh-empty {
+  padding: 1.5rem .75rem;
+}
+#approvalTileContainer .oh-empty .oh-404__image {
+  width: 56px;
+  height: auto;
+  opacity: .45;
+}
+#approvalTileContainer .oh-empty .oh-empty__title {
+  font-size: .85rem;
+}
+
+/* 11. Responsive: smaller padding on mobile */
+@media (max-width: 767.98px) {
+  #approvalTileContainer .oh-sticky-table__td,
+  #approvalTileContainer .oh-sticky-table__th,
+  #approvalTileContainer .oh-sticky-table__sd {
+    padding: .4rem .5rem !important;
+    font-size: .8rem !important;
+  }
+}
+
+/* 12. Leave Allocation filter bar */
+.oh-allocation-filters {
+  border-bottom: 1px solid rgba(0,0,0,.07);
+  padding-bottom: 8px !important;
+}
+.oh-allocation-filter-btn {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: .78rem;
+  font-weight: 500;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  text-decoration: none;
+  transition: background .18s, color .18s, border-color .18s;
+  white-space: nowrap;
+  user-select: none;
+}
+.oh-allocation-filter-btn:hover {
+  background: #e2e8f0;
+  color: #334155;
+  text-decoration: none;
+}
+.oh-allocation-filter-btn--active {
+  background: var(--hrd-emerald, #059669) !important;
+  color: #fff !important;
+  border-color: var(--hrd-emerald, #059669) !important;
+}
