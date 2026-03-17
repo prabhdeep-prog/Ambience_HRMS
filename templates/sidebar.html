@@ -428,4 +428,75 @@
             $("#filterCount").text(`(${count})`);
         }
     }
+
+    // ── Active sidebar submenu link ──────────────────────────────────────────
+    // Highlights the matched child link AND its parent menu item.
+
+    function setActiveSidebarLink(linkEl) {
+        // Clear all previous active states
+        $(".oh-sidebar__submenu-link").removeClass("oh-sidebar__submenu-link--active");
+        $(".oh-sidebar__menu-link").removeClass("oh-sidebar__menu-link--has-active");
+
+        if (!linkEl) return;
+
+        // Highlight the child link
+        $(linkEl).addClass("oh-sidebar__submenu-link--active");
+
+        // Highlight the parent section header too
+        $(linkEl)
+            .closest(".oh-sidebar__menu-item")
+            .find("> .oh-sidebar__menu-link")
+            .addClass("oh-sidebar__menu-link--has-active");
+    }
+
+    function syncActiveSidebarLink() {
+        var currentPath = window.location.pathname;
+        var bestMatch = null;
+        var bestLen = 0;
+
+        $(".oh-sidebar__submenu-link").each(function () {
+            try {
+                var linkPath = new URL(this.href, window.location.origin).pathname;
+                if (
+                    currentPath === linkPath ||
+                    currentPath.startsWith(linkPath + "/")
+                ) {
+                    if (linkPath.length > bestLen) {
+                        bestMatch = this;
+                        bestLen = linkPath.length;
+                    }
+                }
+            } catch (e) {}
+        });
+
+        setActiveSidebarLink(bestMatch);
+    }
+
+    // Run on first load
+    $(syncActiveSidebarLink);
+
+    // Update immediately on click (before page reload) so it feels instant
+    $(document).on("click", ".oh-sidebar__submenu-link", function () {
+        setActiveSidebarLink(this);
+    });
+
+    // ── Mobile sidebar toggle ────────────────────────────────────────────────
+    // Inject backdrop element once
+    $(function () {
+        if (!$("#oh-sidebar-backdrop").length) {
+            $("body").append('<div id="oh-sidebar-backdrop"></div>');
+        }
+
+        // Toggle sidebar open on mobile via any existing toggle button
+        $(document).on("click", "[data-sidebar-toggle]", function () {
+            $(".oh-sidebar").toggleClass("oh-sidebar--mobile-open");
+            $("#oh-sidebar-backdrop").toggleClass("show");
+        });
+
+        // Close on backdrop click
+        $("#oh-sidebar-backdrop").on("click", function () {
+            $(".oh-sidebar").removeClass("oh-sidebar--mobile-open");
+            $(this).removeClass("show");
+        });
+    });
 </script>

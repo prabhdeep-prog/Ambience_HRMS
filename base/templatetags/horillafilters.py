@@ -288,7 +288,7 @@ def currency_symbol_position(amount):
         )
     symbol = PayrollSettings.objects.first()
 
-    currency = symbol.currency_symbol if symbol else "$"
+    currency = symbol.currency_symbol if symbol else "₹"
 
     if symbol.position == "postfix":
         currency_symbol = f"{amount} {currency}"
