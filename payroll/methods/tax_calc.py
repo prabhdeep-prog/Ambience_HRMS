@@ -8,6 +8,8 @@ based on their contract details and income information.
 import datetime
 import logging
 
+from simpleeval import EvalWithCompoundTypes, InvalidExpression
+
 from payroll.methods.methods import (
     compute_yearly_taxable_amount,
     convert_year_tax_to_period,
@@ -20,6 +22,107 @@ from payroll.models.models import Contract
 from payroll.models.tax_models import TaxBracket
 
 logger = logging.getLogger(__name__)
+
+# ── Safe tax formula evaluator ───────────────────────────────────────────────
+
+_SAFE_FUNCTIONS = {
+    "abs":   abs,
+    "min":   min,
+    "max":   max,
+    "round": round,
+    "int":   int,
+    "float": float,
+}
+
+
+def _apply_bracket_list(brackets: list, income: float) -> float:
+    """Apply a progressive bracket list of (min, max, rate) tuples.
+
+    Each tuple defines a bracket: income between min and max is taxed at rate.
+    Iteration stops at the first bracket whose min exceeds income.
+
+    Example:
+        [(0, 11000, 0.10), (11000, 44725, 0.12), (44725, 95375, 0.22)]
+    """
+    total_tax = 0.0
+    for bracket in brackets:
+        if not (isinstance(bracket, (list, tuple)) and len(bracket) == 3):
+            logger.error(
+                "Tax bracket has unexpected shape %r — skipping", bracket
+            )
+            continue
+        bracket_min, bracket_max, rate = (
+            float(bracket[0]),
+            float(bracket[1]),
+            float(bracket[2]),
+        )
+        if income <= bracket_min:
+            break
+        taxable_in_bracket = min(income, bracket_max) - bracket_min
+        total_tax += taxable_in_bracket * rate
+    return total_tax
+
+
+def _evaluate_tax_formula(formula: str, yearly_income: float) -> float:
+    """Safely evaluate a tax formula expression without using exec().
+
+    The formula stored in the database must be one of:
+      - A single arithmetic/conditional expression that evaluates to a number.
+        The variable ``income`` resolves to ``yearly_income``.
+        Example:
+            income * 0.10 if income <= 11000 else 1100 + (income - 11000) * 0.12
+
+      - A Python list literal of (min, max, rate) bracket tuples.
+        Example:
+            [(0, 11000, 0.10), (11000, 44725, 0.12), (44725, 95375, 0.22)]
+
+    Supported operators : + - * / // % **
+    Supported comparisons: < > <= >= == !=
+    Supported syntax    : conditional expressions (X if COND else Y)
+    Allowed functions   : abs, min, max, round, int, float
+    Allowed variable    : income
+
+    Returns 0.0 and logs an error on any evaluation failure so that payroll
+    processing can continue with a safe default rather than crashing.
+    """
+    if not formula or not formula.strip():
+        logger.warning("Tax formula is empty; returning 0")
+        return 0.0
+
+    evaluator = EvalWithCompoundTypes(
+        functions=_SAFE_FUNCTIONS,
+        names={"income": float(yearly_income)},
+    )
+
+    try:
+        result = evaluator.eval(formula.strip())
+    except InvalidExpression as exc:
+        logger.error(
+            "Invalid tax formula expression (income=%.2f): %s — %s",
+            yearly_income, formula, exc,
+        )
+        return 0.0
+    except (TypeError, ValueError, ZeroDivisionError) as exc:
+        logger.error(
+            "Tax formula evaluation error (income=%.2f): %s — %s",
+            yearly_income, formula, exc,
+        )
+        return 0.0
+
+    if isinstance(result, list):
+        return _apply_bracket_list(result, float(yearly_income))
+
+    try:
+        return float(result)
+    except (TypeError, ValueError) as exc:
+        logger.error(
+            "Tax formula returned a non-numeric value %r (income=%.2f): %s",
+            result, yearly_income, exc,
+        )
+        return 0.0
+
+
+# ── Main calculation ─────────────────────────────────────────────────────────
 
 
 def calculate_taxable_amount(**kwargs):
@@ -92,20 +195,7 @@ def calculate_taxable_amount(**kwargs):
         federal_tax = sum(bracket["calculated_rate"] for bracket in filterd_brackets)
 
     elif filing.use_py:
-        code = filing.python_code
-        code = code.replace("print(", "pass_print(")
-        pass_print = """
-def pass_print(*args, **kwargs):
-    return None
-"""
-        code = pass_print + code
-        code = code.replace("  formated_result(", "#  formated_result(")
-        local_vars = {}
-        exec(code, {}, local_vars)
-        try:
-            federal_tax = local_vars["calculate_federal_tax"](yearly_income)
-        except Exception as e:
-            logger.error(e)
+        federal_tax = _evaluate_tax_formula(filing.python_code, yearly_income)
 
     federal_tax_for_period = 0
     if federal_tax and (tax_brackets.exists() or filing.use_py):
