@@ -35,6 +35,13 @@ env = environ.Env(
     EMAIL_PORT=(int, 587),
     EMAIL_USE_TLS=(bool, True),
     EMAIL_USE_SSL=(bool, False),
+    # AWS / S3
+    USE_S3=(bool, False),
+    AWS_STORAGE_BUCKET_NAME=(str, ""),
+    AWS_S3_REGION_NAME=(str, "us-east-1"),
+    AWS_ACCESS_KEY_ID=(str, ""),
+    AWS_SECRET_ACCESS_KEY=(str, ""),
+    AWS_S3_CUSTOM_DOMAIN=(str, ""),
 )
 
 env.read_env(os.path.join(BASE_DIR, ".env"), overwrite=True)
@@ -46,6 +53,8 @@ SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+
+CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
 # Application definition
 
@@ -194,10 +203,58 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
-
 MEDIA_URL = "/media/"
 MEDIA_ROOT = env("MEDIA_ROOT", default=str(os.path.join(BASE_DIR, "media/")))
+
+# ---------------------------------------------------------------------------
+# Storage: S3 (production) vs local filesystem (development)
+# ---------------------------------------------------------------------------
+# Set USE_S3=True in your .env / ECS task definition environment variables
+# to switch media file storage to AWS S3.  Static files always use WhiteNoise
+# (served from the container) to avoid the cost of S3 GET requests per page.
+# ---------------------------------------------------------------------------
+USE_S3 = env("USE_S3")
+
+if USE_S3:
+    # AWS credentials (injected from Secrets Manager in production)
+    AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME")
+    AWS_S3_CUSTOM_DOMAIN = env("AWS_S3_CUSTOM_DOMAIN") or \
+        f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+
+    # Security: files not publicly readable by default
+    AWS_DEFAULT_ACL = None
+    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+    AWS_QUERYSTRING_AUTH = True   # signed URLs for private media
+    AWS_S3_FILE_OVERWRITE = False  # never silently overwrite uploads
+
+    # Media files → S3
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
+
+    # Static files → WhiteNoise (served from container, not S3)
+    # This avoids extra S3 GET cost on every page request.
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+else:
+    # Local development — serve everything from disk
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+
+# ---------------------------------------------------------------------------
+# pdfkit / wkhtmltopdf path
+# ---------------------------------------------------------------------------
+# macOS (Homebrew): /usr/local/bin/wkhtmltopdf
+# Linux (apt / Docker image): /usr/bin/wkhtmltopdf
+# Override with env var WKHTMLTOPDF_PATH if installed elsewhere.
+# ---------------------------------------------------------------------------
+import shutil as _shutil
+
+WKHTMLTOPDF_PATH = os.environ.get(
+    "WKHTMLTOPDF_PATH",
+    _shutil.which("wkhtmltopdf") or "/usr/bin/wkhtmltopdf",
+)
+PDFKIT_CONFIG = {"wkhtmltopdf": WKHTMLTOPDF_PATH}
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 

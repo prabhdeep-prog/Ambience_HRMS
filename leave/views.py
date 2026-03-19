@@ -2833,7 +2833,7 @@ def overall_leave(request):
 
 @transaction.non_atomic_requests
 @login_required
-@permission_required("leave.delete_leaverequest")
+@manager_can_enter("leave.view_leaverequest")
 def dashboard(request):
     """
     Leave admin dashboard — counts cached per month, stampede-protected.
@@ -2853,9 +2853,11 @@ def dashboard(request):
     month_key = today.strftime("%Y-%m")
 
     def _compute_counts():
+        # All pending requests regardless of start date — admins/managers
+        # need to see retroactive requests too (e.g. unplanned leave last week).
         return {
             "requested_count": LeaveRequest.objects.filter(
-                start_date__gte=today, status="requested"
+                status="requested"
             ).count(),
             "approved_count": LeaveRequest.objects.filter(
                 status="approved", start_date__month=today.month
@@ -2872,7 +2874,7 @@ def dashboard(request):
         }
 
     cached = stampede_cache.get_or_compute(
-        key=f"horilla:dashboard:leave:stats:{month_key}",
+        key=f"horilla:dashboard:leave:stats:v2:{month_key}",
         compute_fn=_compute_counts,
         timeout=300,
     )
@@ -2880,9 +2882,7 @@ def dashboard(request):
     # Pass live querysets for the detail table (they're paginated so Django
     # evaluates only the visible page, not the full result set).
     context = {
-        "requested": LeaveRequest.objects.filter(
-            start_date__gte=today, status="requested"
-        ),
+        "requested": LeaveRequest.objects.filter(status="requested"),
         "approved": LeaveRequest.objects.filter(
             status="approved", start_date__month=today.month
         ),
@@ -2916,7 +2916,10 @@ def employee_dashboard(request):
     GET : return Employee dasboard template.
     """
     today = date.today()
-    user = Employee.objects.get(employee_user_id=request.user)
+    user = Employee.objects.filter(employee_user_id=request.user).first()
+    if not user:
+        # Admin/superuser without an employee profile — redirect to manager dashboard
+        return redirect("leave-dashboard")
     leave_requests = LeaveRequest.objects.filter(employee_id=user)
     requested = leave_requests.filter(status="requested")
     approved = leave_requests.filter(status="approved")

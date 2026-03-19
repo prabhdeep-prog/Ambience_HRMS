@@ -230,7 +230,7 @@
 <script>
     $(document).ready(function () {
         $("#requestedLeaves").on("click", function () {
-            window.location.href = '{% url "request-view" %}?status=requested&from_date={{today}}'
+            window.location.href = '{% url "request-view" %}?status=requested'
         })
         $("#approvedLeaves").on("click", function () {
             window.location.href = '{% url "request-view" %}?status=approved&from_date={{first_day}}&to_date={{last_day}}'

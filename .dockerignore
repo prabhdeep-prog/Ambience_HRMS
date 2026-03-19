@@ -3,3 +3,39 @@
 *.md
 LICENSE
 docker-compose.yaml
+
+# Virtual environments — never bake into image
+horillavenv/
+venv/
+.venv/
+
+# Claude / IDE
+.claude/
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Media uploads (served from S3 in production)
+media/
+
+# Test artifacts
+.coverage
+htmlcov/
+.pytest_cache/

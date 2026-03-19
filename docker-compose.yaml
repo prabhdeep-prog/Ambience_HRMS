@@ -1,39 +1,136 @@
+# =============================================================================
+# Horilla HRMS — Production Docker Compose
+# Services: web, celery-worker, celery-beat, redis
+# Database: NeonDB (external — set DATABASE_URL in .env)
+# Media/Static: AWS S3 (set AWS_* vars in .env)
+# =============================================================================
+
 services:
-  server:
+
+  # ── Web / Gunicorn ──────────────────────────────────────────────────────────
+  web:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - 8000:8000
+      target: runtime
+    image: horilla-hrms:latest
+    container_name: horilla_web
     restart: unless-stopped
+    command: /app/entrypoint.sh
+    ports:
+      - "${PORT:-8000}:8000"
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: "postgres://postgres:postgres@db:5432/horilla"
-    command: sh ./entrypoint.sh
+      - CACHE_REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
     volumes:
-      - ./horilla:/app/horilla
-      - ./media:/app/media
+      - media_volume:/app/media
+      - static_volume:/app/staticfiles
+      - logs_volume:/app/logs
     depends_on:
-      db:
+      redis:
         condition: service_healthy
-
-  db:
-    image: postgres:16-bullseye
-    environment:
-      POSTGRES_DB: horilla
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
-      PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - 5432:5432
-    restart: unless-stopped
-    volumes:
-      - horilla-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ── Celery Worker ────────────────────────────────────────────────────────────
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: horilla-hrms:latest
+    container_name: horilla_worker
+    restart: unless-stopped
+    command: /app/entrypoint.worker.sh
+    env_file:
+      - .env
+    environment:
+      - CACHE_REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_CONCURRENCY=4
+    volumes:
+      - media_volume:/app/media
+      - logs_volume:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Celery Beat (scheduler) ──────────────────────────────────────────────────
+  # IMPORTANT: Scale this to exactly 1 replica always — never run 2 beat instances.
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: horilla-hrms:latest
+    container_name: horilla_beat
+    restart: unless-stopped
+    command: /app/entrypoint.beat.sh
+    env_file:
+      - .env
+    environment:
+      - CACHE_REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    volumes:
+      - logs_volume:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Redis (Cache + Celery Broker) ────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: horilla_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 volumes:
-  horilla-data:
+  media_volume:
+  static_volume:
+  logs_volume:
+
+networks:
+  default:
+    name: horilla_network
