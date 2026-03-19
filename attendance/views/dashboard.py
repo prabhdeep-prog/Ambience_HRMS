@@ -8,6 +8,7 @@ import json
 from datetime import date, datetime
 
 from django.apps import apps
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _
@@ -69,45 +70,59 @@ def find_expected_attendances(week_day):
     return expected_attendances
 
 
+@transaction.non_atomic_requests
 @login_required
 def dashboard(request):
     """
-    This method is used to render individual dashboard for attendance module
+    Attendance dashboard — stats cached per calendar day, stampede-protected.
+
+    The six headline stats (on_time, late_come, expected, ratios) are
+    org-wide aggregates that don't vary per user.  Keying the cache on
+    today's ISO date means the cache auto-invalidates at midnight without
+    any manual invalidation logic.
+
+    TTL is set to 300 s (5 min) so the numbers update frequently during the
+    working day without hammering the Attendance and Employee tables on every
+    page view.
     """
+    from horilla.cache_utils import stampede_cache
 
     today = datetime.today()
     week_day = today.strftime("%A").lower()
+    today_key = today.strftime("%Y-%m-%d")  # cache key changes daily at midnight
 
-    on_time = find_on_time(request, today=today, week_day=week_day)
-    late_come = find_late_come(start_date=today)
-    late_come_obj = len(late_come)
+    def _compute_stats():
+        _on_time = find_on_time(request, today=today, week_day=week_day)
+        _late_come_qs = find_late_come(start_date=today)
+        _late_come = len(_late_come_qs)
+        _marked = _late_come + _on_time
+        _expected = find_expected_attendances(week_day=week_day)
 
-    marked_attendances = late_come_obj + on_time
+        _on_time_ratio = 0
+        _late_come_ratio = 0
+        _marked_ratio = 0
+        if _expected != 0:
+            _on_time_ratio = f"{(_on_time / _expected) * 100:.2f}"
+            _late_come_ratio = f"{(_late_come / _expected) * 100:.2f}"
+            _marked_ratio = f"{(_marked / _expected) * 100:.2f}"
 
-    expected_attendances = find_expected_attendances(week_day=week_day)
-    on_time_ratio = 0
-    late_come_ratio = 0
-    marked_attendances_ratio = 0
-    if expected_attendances != 0:
-        on_time_ratio = f"{(on_time / expected_attendances) * 100:.2f}"
-        late_come_ratio = f"{(late_come_obj / expected_attendances) * 100:.2f}"
-        marked_attendances_ratio = (
-            f"{(marked_attendances / expected_attendances) * 100:.2f}"
-        )
+        return {
+            "on_time": _on_time,
+            "on_time_ratio": _on_time_ratio,
+            "late_come": _late_come,
+            "late_come_ratio": _late_come_ratio,
+            "expected_attendances": _expected,
+            "marked_attendances": _marked,
+            "marked_attendances_ratio": _marked_ratio,
+        }
 
-    return render(
-        request,
-        "attendance/dashboard/dashboard.html",
-        {
-            "on_time": on_time,
-            "on_time_ratio": on_time_ratio,
-            "late_come": late_come_obj,
-            "late_come_ratio": late_come_ratio,
-            "expected_attendances": expected_attendances,
-            "marked_attendances": marked_attendances,
-            "marked_attendances_ratio": marked_attendances_ratio,
-        },
+    stats = stampede_cache.get_or_compute(
+        key=f"horilla:dashboard:attendance:stats:{today_key}",
+        compute_fn=_compute_stats,
+        timeout=300,
     )
+
+    return render(request, "attendance/dashboard/dashboard.html", stats)
 
 
 @login_required
@@ -323,42 +338,46 @@ def generate_data_set(request, start_date, type, end_date, dept):
     return data if data else None
 
 
+@transaction.non_atomic_requests
 @login_required
 def dashboard_attendance(request):
     """
-    This method is used to render json response of dashboard data
+    Attendance chart data — cached per (date, type, end_date) query params.
 
-    Returns:
-        JsonResponse: returns data set as json
+    Each unique combination of date range and granularity (day/week/month)
+    gets its own cache entry keyed by those params.  This is correct because
+    the chart is strictly read-only and the same params always produce the
+    same result within a 5-minute window.
     """
-    labels = [
-        _("On Time"),
-        _("Late Come"),
-        _("Early Out"),
-    ]
-    # initializing values
-    data_set = []
-    start_date = date.today()
-    end_date = start_date
-    type = "date"
+    from horilla.cache_utils import stampede_cache
 
-    # if there is values in request update the values
-    if request.GET.get("date"):
-        start_date = request.GET.get("date")
-    if request.GET.get("type"):
-        type = request.GET.get("type")
-    if request.GET.get("end_date"):
-        end_date = request.GET.get("end_date")
+    labels = [str(_("On Time")), str(_("Late Come")), str(_("Early Out"))]
+    start_date = str(request.GET.get("date", date.today()))
+    type = request.GET.get("type", "date")
+    end_date = str(request.GET.get("end_date", start_date))
 
-    # get all departments for filtration
-    departments = Department.objects.all()
-    for dept in departments:
-        data_set.append(generate_data_set(request, start_date, type, end_date, dept))
-    message = _("No records available at the moment.")
-    data_set = list(filter(None, data_set))
+    cache_key = (
+        f"horilla:dashboard:attendance:chart:{start_date}:{type}:{end_date}"
+    )
+
+    def _compute():
+        departments = Department.objects.all()
+        data_set = [
+            generate_data_set(request, start_date, type, end_date, dept)
+            for dept in departments
+        ]
+        return list(filter(None, data_set))
+
+    data_set = stampede_cache.get_or_compute(
+        key=cache_key,
+        compute_fn=_compute,
+        timeout=300,
+    )
+    message = str(_("No records available at the moment."))
     return JsonResponse({"dataSet": data_set, "labels": labels, "message": message})
 
 
+@transaction.non_atomic_requests
 def pending_hours(request):
     """
     pending hours chart dashboard view
@@ -376,6 +395,7 @@ def pending_hours(request):
     return JsonResponse({"data": data})
 
 
+@transaction.non_atomic_requests
 @login_required
 def department_overtime_chart(request):
     start_date = request.GET.get("date") if request.GET.get("date") else date.today()

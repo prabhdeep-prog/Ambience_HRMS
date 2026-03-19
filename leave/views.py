@@ -41,7 +41,7 @@ from base.methods import (
     sortby,
 )
 from base.models import CompanyLeaves, Holidays, PenaltyAccounts
-from employee.models import Employee
+from employee.models import Employee, EmployeeWorkInformation
 from horilla.decorators import (
     hx_request_required,
     logger,
@@ -997,6 +997,34 @@ def leave_request_approve(request, id, emp_id=None):
     except LeaveRequest.DoesNotExist:
         messages.error(request, _("Leave request not found."))
         return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
+
+    # --- Per-employee authorization ---
+    # The decorator only checks global manager status; here we verify the user
+    # is specifically authorized to approve THIS employee's leave request.
+    if not request.user.has_perm("leave.change_leaverequest"):
+        user_employee = getattr(request.user, "employee_get", None)
+        is_direct_manager = (
+            user_employee is not None
+            and EmployeeWorkInformation.objects.filter(
+                employee_id=leave_request.employee_id,
+                reporting_manager_id=user_employee,
+            ).exists()
+        )
+        is_approval_manager = (
+            user_employee is not None
+            and MultipleApprovalManagers.objects.filter(
+                employee_id=user_employee.id
+            ).exists()
+        )
+        if not is_direct_manager and not is_approval_manager:
+            messages.error(
+                request,
+                _("You are not authorized to approve leave requests for this employee."),
+            )
+            return HttpResponseRedirect(
+                request.META.get("HTTP_REFERER", "/leave/request-view/")
+            )
+    # --- End per-employee authorization ---
 
     employee_id = leave_request.employee_id
     leave_type_id = leave_request.leave_type_id
@@ -2754,14 +2782,21 @@ def employee_leave(request):
     request (HttpRequest): The HTTP request object.
 
     Returns:
-    GET : return Json response of employee
+    GET : return full page view or card view (for AJAX)
     """
     leaves = LeaveRequest.employees_on_leave_today(status="approved")
     requests_ids = list(leaves.values_list("id", flat=True))
     today_holidays = Holidays.today_holidays()
+
+    # If AJAX request, return card template; otherwise return full page
+    if request.headers.get('HX-Request'):
+        template = "leave/dashboard/on_leave.html"
+    else:
+        template = "leave/employee_on_leave_list.html"
+
     return render(
         request,
-        "leave/dashboard/on_leave.html",
+        template,
         {
             "leaves": leaves,
             "requests_ids": requests_ids,
@@ -2796,34 +2831,69 @@ def overall_leave(request):
     return JsonResponse({"labels": labels, "data": data})
 
 
+@transaction.non_atomic_requests
 @login_required
 @permission_required("leave.delete_leaverequest")
 def dashboard(request):
     """
-    function used to view Admin dashboard in the leave module.
+    Leave admin dashboard — counts cached per month, stampede-protected.
 
-    Parameters:
-    request (HttpRequest): The HTTP request object.
+    The three headline counts (pending requests, this-month approved,
+    this-month rejected) are org-wide and expensive when there are thousands
+    of leave requests.  We cache the INTEGER counts separately from the
+    querysets: the template receives cached counts for the summary cards and
+    fresh (unevaluated) querysets for the detail tables.
 
-    Returns:
-    GET : return Admin dasboard template.
+    Cache key includes YYYY-MM so it auto-invalidates at month rollover.
+    TTL = 300 s (5 min) so new requests/approvals surface quickly.
     """
-    today = date.today()
-    requested = LeaveRequest.objects.filter(start_date__gte=today, status="requested")
-    approved = LeaveRequest.objects.filter(
-        status="approved", start_date__month=today.month
-    )
-    rejected = LeaveRequest.objects.filter(
-        status="rejected", start_date__month=today.month
-    )
-    holidays = Holidays.objects.filter(start_date__gte=today)
-    next_holiday = holidays.order_by("start_date").first() if holidays else None
+    from horilla.cache_utils import stampede_cache
 
+    today = date.today()
+    month_key = today.strftime("%Y-%m")
+
+    def _compute_counts():
+        return {
+            "requested_count": LeaveRequest.objects.filter(
+                start_date__gte=today, status="requested"
+            ).count(),
+            "approved_count": LeaveRequest.objects.filter(
+                status="approved", start_date__month=today.month
+            ).count(),
+            "rejected_count": LeaveRequest.objects.filter(
+                status="rejected", start_date__month=today.month
+            ).count(),
+            "next_holiday": (
+                Holidays.objects.filter(start_date__gte=today)
+                .order_by("start_date")
+                .values("name", "start_date", "end_date")
+                .first()
+            ),
+        }
+
+    cached = stampede_cache.get_or_compute(
+        key=f"horilla:dashboard:leave:stats:{month_key}",
+        compute_fn=_compute_counts,
+        timeout=300,
+    )
+
+    # Pass live querysets for the detail table (they're paginated so Django
+    # evaluates only the visible page, not the full result set).
     context = {
-        "requested": requested,
-        "approved": approved,
-        "rejected": rejected,
-        "next_holiday": next_holiday,
+        "requested": LeaveRequest.objects.filter(
+            start_date__gte=today, status="requested"
+        ),
+        "approved": LeaveRequest.objects.filter(
+            status="approved", start_date__month=today.month
+        ),
+        "rejected": LeaveRequest.objects.filter(
+            status="rejected", start_date__month=today.month
+        ),
+        "next_holiday": cached["next_holiday"],
+        # Pre-computed counts for the summary KPI cards — no extra DB hit.
+        "requested_count": cached["requested_count"],
+        "approved_count": cached["approved_count"],
+        "rejected_count": cached["rejected_count"],
         "dashboard": "dashboard",
         "today": today.strftime("%Y-%m-%d"),
         "first_day": today.replace(day=1).strftime("%Y-%m-%d"),

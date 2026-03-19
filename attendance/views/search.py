@@ -53,7 +53,38 @@ def attendance_search(request):
     field = request.GET.get("field")
     minot = strtime_seconds("00:00")
     condition = AttendanceValidationCondition.objects.first()
-    all_attendances = Attendance.objects.all()
+    # ── N+1 fix ──────────────────────────────────────────────────────────────
+    # Every column in the attendance list accesses at least one FK-traversal
+    # (employee name/avatar, shift, work_type, attendance_day, batch).
+    # Without select_related those generate 5 × N extra queries per page.
+    #
+    # select_related is correct for all five because they are plain
+    # ForeignKey (many-to-1) relationships — Django translates each into an
+    # SQL JOIN so the whole row arrives in the same database round-trip.
+    #
+    # prefetch_related would be wrong here: it fires a separate IN-clause
+    # query and is the right tool only for M2M or reverse-FK relations.
+    #
+    # defer() strips two heavyweight columns that are never rendered in the
+    # list table:
+    #   • request_description  — TextField (can hold long correction notes)
+    #   • requested_data       — JSONField (snapshot blob for re-validate UI)
+    # If either field is accessed later (e.g. in a detail modal view that
+    # uses the same queryset slice) Django lazily loads it per-row, but that
+    # path always fetches a *single* record by PK so the cost is negligible.
+    # ─────────────────────────────────────────────────────────────────────────
+    all_attendances = (
+        Attendance.objects.select_related(
+            "employee_id",         # → Employee  (name, get_avatar)
+            "shift_id",            # → EmployeeShift  (__str__)
+            "work_type_id",        # → WorkType  (__str__)
+            "batch_attendance_id", # → BatchAttendance  (__str__)
+            "attendance_day",      # → EmployeeShiftDay  (.get_day_display)
+        ).defer(
+            "request_description", # TextField — not shown in list rows
+            "requested_data",      # JSONField — not shown in list rows
+        )
+    )
     if request.GET.get("sortby"):
         all_attendances = sortby(request, all_attendances, "sortby")
 

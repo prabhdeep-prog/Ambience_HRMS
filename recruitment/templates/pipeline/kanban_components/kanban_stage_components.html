@@ -1,24 +1,419 @@
-
 {% load i18n recruitmentfilters static %}
 
+<style>
+/* ============================================================
+   PIPELINE KANBAN — REDESIGN
+   All rules are scoped under .kp- prefix or .oh-kanban overrides
+   to avoid collisions with the global oh-* design system.
+   ============================================================ */
+
+/* ── Board container ─────────────────────────────────────── */
+.oh-kanban.drop-target {
+    gap: 12px;
+    padding: 6px 4px 24px;
+    align-items: flex-start;
+}
+
+/* ── Stage column ────────────────────────────────────────── */
+.oh-kanban__section.pipeline_item {
+    width: 284px;
+    min-width: 284px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    top: unset !important;
+    transition: box-shadow 200ms ease;
+}
+.oh-kanban__section.pipeline_item.oh-kanban__section--highlight,
+.oh-kanban__section.pipeline_item.ui-sortable-over {
+    border: 2px dashed #6366f1;
+    background: #eef2ff;
+    box-shadow: 0 0 0 4px rgba(99,102,241,.12);
+}
+
+/* ── Stage type color strip ──────────────────────────────── */
+.kp-stage-strip {
+    height: 4px;
+    border-radius: 12px 12px 0 0;
+    width: 100%;
+    background: var(--stage-color, #94a3b8);
+}
+
+/* Stage type → color CSS variables */
+.kp-stage--applied   { --stage-color: #3b82f6; --stage-color-bg: #eff6ff; --stage-color-text: #1d4ed8; }
+.kp-stage--initial   { --stage-color: #f59e0b; --stage-color-bg: #fffbeb; --stage-color-text: #b45309; }
+.kp-stage--test      { --stage-color: #8b5cf6; --stage-color-bg: #f5f3ff; --stage-color-text: #6d28d9; }
+.kp-stage--interview { --stage-color: #6366f1; --stage-color-bg: #eef2ff; --stage-color-text: #4338ca; }
+.kp-stage--cancelled { --stage-color: #ef4444; --stage-color-bg: #fef2f2; --stage-color-text: #b91c1c; }
+.kp-stage--hired     { --stage-color: #22c55e; --stage-color-bg: #f0fdf4; --stage-color-text: #15803d; }
+
+/* ── Stage header ────────────────────────────────────────── */
+.oh-kanban__section-head.kp-stage-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #fff;
+    border-bottom: 1px solid #e8ecf0;
+    border-radius: 0;
+    padding: 10px 12px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    cursor: grab;
+}
+.oh-kanban__section-head.kp-stage-head:active { cursor: grabbing; }
+
+/* Stage manager highlight */
+.kp-stage-head--managed {
+    background: hsl(38.08deg 100% 50% / 6%) !important;
+}
+
+/* Stage name input — clean borderless style */
+.kp-stage-head .oh-tabs__movable-title {
+    border: none !important;
+    background: transparent !important;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    padding: 0;
+    width: 140px;
+    outline: none;
+    cursor: pointer;
+}
+.kp-stage-head .oh-tabs__movable-title:focus {
+    background: #f1f5f9 !important;
+    border-radius: 4px;
+    padding: 2px 6px;
+    cursor: text;
+}
+
+/* Count badge — circular pill */
+.kp-stage-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--stage-color-bg, #f1f5f9);
+    color: var(--stage-color-text, #475569);
+    border: 1px solid var(--stage-color, #cbd5e1);
+    flex-shrink: 0;
+    transition: background 200ms;
+}
+
+/* ── Stage body / drop zone ─────────────────────────────── */
+.oh-kanban__section-body.candidate-container {
+    flex: 1;
+    min-height: 80px;
+    padding: 6px 4px 8px;
+    border-radius: 0 0 12px 12px;
+    transition: background 200ms ease;
+}
+.oh-kanban__section-body.candidate-container.ui-sortable-over,
+.oh-kanban__section-body.candidate-container.kp-drop-active {
+    background: #dbeafe;
+    border: 2px dashed #3b82f6;
+    border-top: none;
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.kp-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 16px;
+    color: #94a3b8;
+    user-select: none;
+    pointer-events: none;
+}
+.kp-empty-state ion-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+    opacity: .45;
+}
+.kp-empty-state span {
+    font-size: 12px;
+    font-weight: 500;
+    opacity: .7;
+}
+
+/* ── Card redesign ───────────────────────────────────────── */
+.oh-kanban__card.kp-card {
+    background: #ffffff;
+    border: 1px solid #e8ecf0;
+    border-radius: 10px;
+    margin: 5px 6px;
+    padding: 0;
+    overflow: visible;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+    cursor: pointer;
+}
+.oh-kanban__card.kp-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 22px rgba(0,0,0,.10);
+    border-color: #c7d2fe;
+}
+.oh-kanban__card.kp-card.oh-kanban__card-highlight {
+    border: 2px dashed #6366f1;
+    box-shadow: 0 0 0 4px rgba(99,102,241,.15);
+}
+
+/* Offer-rejected left border */
+.oh-kanban__card.kp-card.kp-card--rejected {
+    border-left: 3px solid #ef4444;
+}
+
+/* Card body */
+.kp-card__body {
+    padding: 11px 12px 8px;
+}
+
+/* Avatar row */
+.kp-card__avatar-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 7px;
+}
+.kp-avatar {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--avatar-bg, #e0e7ff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--avatar-text, #4338ca);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px #e0e7ff;
+}
+.kp-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+.kp-card__info { flex: 1; min-width: 0; }
+.kp-card__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+    line-height: 1.3;
+}
+.kp-card__position {
+    font-size: 11px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 2px 0 0;
+}
+
+/* Badges row */
+.kp-card__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 7px;
+}
+.kp-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.kp-badge--interview {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+.kp-badge--rejected {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+.kp-badge--offer {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+/* Rating + date stats row */
+.kp-card__stats {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 7px;
+    border-top: 1px solid #f1f5f9;
+    margin-top: 4px;
+}
+.kp-card__date {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: #94a3b8;
+}
+.kp-card__date ion-icon { font-size: 12px; }
+
+/* Star rating - compact in card */
+.kp-card__rating .oh-rate {
+    display: flex !important;
+    flex-direction: row-reverse;
+    gap: 1px;
+}
+.kp-card__rating .oh-rate label {
+    font-size: 12px;
+    cursor: pointer;
+    color: #cbd5e1;
+    padding: 0;
+    margin: 0;
+    line-height: 1;
+    text-indent: -9999px;
+    overflow: hidden;
+    width: 14px;
+}
+.kp-card__rating .oh-rate label::before {
+    content: "★";
+    text-indent: 0;
+    float: left;
+    font-size: 13px;
+}
+.kp-card__rating .oh-rate input:checked ~ label,
+.kp-card__rating .oh-rate label:hover,
+.kp-card__rating .oh-rate label:hover ~ label {
+    color: #f59e0b !important;
+}
+
+/* Action menu button */
+.kp-card__menu-btn {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    border-radius: 6px;
+    color: #94a3b8;
+    cursor: pointer;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    transition: background 150ms, color 150ms;
+}
+.kp-card__menu-btn:hover {
+    background: #f1f5f9;
+    color: #475569;
+}
+.kp-card__menu-btn ion-icon { font-size: 16px; }
+
+/* Dropdown menu in card */
+.kp-card .oh-dropdown__menu {
+    min-width: 170px;
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.12);
+    border: 1px solid #e2e8f0;
+    padding: 4px;
+    z-index: 999;
+}
+.kp-card .oh-dropdown__link {
+    border-radius: 6px;
+    font-size: 13px;
+    padding: 7px 10px;
+    display: block;
+}
+.kp-card .oh-dropdown__link:hover {
+    background: #f8fafc;
+}
+.kp-card .oh-dropdown__link--danger { color: #ef4444; }
+.kp-card .oh-dropdown__link--danger:hover { background: #fef2f2; }
+
+/* Add stage button polish */
+.oh-kanban__add-section {
+    white-space: nowrap;
+    border-radius: 10px;
+    border: 2px dashed #cbd5e1;
+    background: transparent;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    transition: background 150ms, border-color 150ms, color 150ms;
+}
+.oh-kanban__add-section:hover {
+    background: #f8fafc;
+    border-color: #6366f1;
+    color: #6366f1;
+}
+
+/* Dragging ghost card */
+.oh-kanban__card.ui-sortable-helper {
+    transform: rotate(2deg);
+    box-shadow: 0 16px 40px rgba(0,0,0,.18) !important;
+    opacity: .95;
+}
+.oh-kanban__card.ui-sortable-placeholder {
+    background: #e0e7ff !important;
+    border: 2px dashed #6366f1 !important;
+    border-radius: 10px;
+    visibility: visible !important;
+    height: 70px;
+}
+</style>
+
 {% for stage in ordered_stages %}
-{% for stage in rec.stage_set.all %}
-    <button hidden class="reload-badge" hx-get="{% url "get-stage-count" %}?stage_id={{stage.id}}" hx-target="#stageCount{{stage.id}}" id="reloadBadge{{stage.id}}">{{stage}}</button>
+{# Hidden reload-badge buttons — required for badge count HTMX updates #}
+{% for s in rec.stage_set.all %}
+    <button hidden class="reload-badge"
+        hx-get="{% url "get-stage-count" %}?stage_id={{s.id}}"
+        hx-target="#stageCount{{s.id}}"
+        id="reloadBadge{{s.id}}">{{s}}</button>
 {% endfor %}
-<div
-    class="oh-kanban__section pipeline_item candidate-table"
+
+{# ── Stage column ─────────────────────────────────────────── #}
+<div class="oh-kanban__section pipeline_item kp-stage--{{ stage.stage_type }}"
     data-container='candidate'
     id="kanban{{stage.id}}"
     data-stage-id="{{stage.id}}"
-    data-sequence = "{{stage.sequence}}"
-    data-recruitment-id = "{{rec.id}}"
-    style="position:sticky;top:0"
->
-    <div class="oh-kanban__section-head stage" style="cursor: pointer; {% if request.user.employee_get in stage.stage_managers.all %} background-color: hsl(38.08deg 100% 50% / 8%); {% endif %}" data-recruitment-id='{{rec.id}}'>
-        <div class="d-flex">
-            <span class="oh-badge oh-badge--secondary oh-badge--small oh-badge--round ms-2 mr-2" data-rec-stage-badge="{{rec.id}}" id="stageCount{{stage.id}}" >0</span>
-            <span class="oh-kanban__section-title" data-type="label"
-            >
+    data-sequence="{{stage.sequence}}"
+    data-recruitment-id="{{rec.id}}">
+
+    {# Color accent strip #}
+    <div class="kp-stage-strip"></div>
+
+    {# Sticky column header #}
+    <div class="oh-kanban__section-head kp-stage-head stage
+        {% if request.user.employee_get in stage.stage_managers.all %}kp-stage-head--managed{% endif %}"
+        data-recruitment-id='{{rec.id}}'>
+
+        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0;">
+            {# Candidate count badge #}
+            <span class="kp-stage-badge"
+                data-rec-stage-badge="{{rec.id}}"
+                id="stageCount{{stage.id}}"
+                title="0 {% trans "Candidates" %}">0</span>
+
+            {# Stage title — inline editable #}
             <input
                 class="oh-tabs__movable-title oh-table__editable-input"
                 value="{{stage}}"
@@ -26,116 +421,144 @@
                 hx-post="{% url 'stage-title-update' stage.id %}"
                 name='stage'
                 {% endif %}
-                hx-target = "#update-message"
-                style="width: 160px;"
-                readonly=""
+                hx-target="#update-message"
+                style="width:148px;"
+                readonly
+                title="{% trans 'Click to rename stage' %}"
             />
-            </span>
         </div>
 
-        <div class="oh-kanban__head-actions oh-kanban__dropdown candidate-table" data-stage-id="{{stage.id}}" >
-            {% if perms.recruitment.add_candidate or perms.recruitment.change_stage  or perms.recruitment.delete_stage or request.user.employee_get in stage.stage_managers.all or request.user.employee_get in rec.recruitment_managers.all %}
-                <div class="oh-dropdown" x-data="{open: false}">
-                    <button class="oh-btn oh-stop-prop oh-btn--transparent oh-accordion-meta__btn" @click="open = !open"
-                    @click.outside="open = false" title="{% trans " Actions" %}">
-                        <ion-icon name="ellipsis-vertical"></ion-icon>
-                    </button>
-                    <div class="oh-dropdown__menu oh-dropdown__menu--right" x-show="open">
-                        <ul class="oh-dropdown__items">
-                            {% if perms.recruitment.add_candidate or request.user.employee_get in rec.recruitment_managers.all or request.user.employee_get in stage.stage_managers.all %}
-                            <li class="oh-dropdown__item">
-                                <a class="oh-dropdown__link"
+        {# Stage actions dropdown #}
+        <div class="oh-kanban__head-actions oh-kanban__dropdown candidate-table" data-stage-id="{{stage.id}}">
+            {% if perms.recruitment.add_candidate or perms.recruitment.change_stage or perms.recruitment.delete_stage or request.user.employee_get in stage.stage_managers.all or request.user.employee_get in rec.recruitment_managers.all %}
+            <div class="oh-dropdown" x-data="{open: false}">
+                <button class="oh-btn oh-stop-prop oh-btn--transparent oh-accordion-meta__btn"
+                    @click="open = !open" @click.outside="open = false"
+                    title="{% trans "Stage Actions" %}">
+                    <ion-icon name="ellipsis-vertical"></ion-icon>
+                </button>
+                <div class="oh-dropdown__menu oh-dropdown__menu--right" x-show="open">
+                    <ul class="oh-dropdown__items">
+                        {% if perms.recruitment.add_candidate or request.user.employee_get in rec.recruitment_managers.all or request.user.employee_get in stage.stage_managers.all %}
+                        <li class="oh-dropdown__item">
+                            <a class="oh-dropdown__link"
                                 hx-get="{% url 'add-candidate-to-stage' %}?stage_id={{stage.id}}"
                                 hx-target="#createTarget"
                                 data-toggle="oh-modal-toggle"
-                                data-target="#createModal"  data-key=".oh-kanban__section">{% trans "Add Candidate" %}</a>
-                            </li>
-                            {% endif %}
-                            {% if perms.recruitment.change_stage or request.user.employee_get in rec.recruitment_managers.all or request.user.employee_get in stage.stage_managers.all %}
-                            <li class="oh-dropdown__item">
-                                <a hx-get='{% url "stage-update-pipeline" stage.id %}' hx-target='#objectUpdateModalTarget' class="oh-dropdown__link" data-toggle="oh-modal-toggle" data-target="#objectUpdateModal" data-key=".oh-kanban__section">{% trans "Edit" %}</a>
-                            </li>
-                            {% endif %}
-                            {% if perms.recruitment.delete_stage %}
-                            <li class="oh-dropdown__item">
-                                <form action="{% url 'rec-stage-delete' stage.id %}" onsubmit="return confirm('{% trans "Are you sure you want to delete this stage?" %}');" method="post">
-                                    {% csrf_token %}
-                                    <button class="oh-dropdown__link oh-dropdown__link--danger ">{% trans "Delete" %}</button>
-                                </form>
-                            </li>
-                            {% endif %}
-                        </ul>
-                    </div>
+                                data-target="#createModal"
+                                data-key=".oh-kanban__section">
+                                <ion-icon name="person-add-outline" class="me-1"></ion-icon>
+                                {% trans "Add Candidate" %}
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if perms.recruitment.change_stage or request.user.employee_get in rec.recruitment_managers.all or request.user.employee_get in stage.stage_managers.all %}
+                        <li class="oh-dropdown__item">
+                            <a hx-get='{% url "stage-update-pipeline" stage.id %}'
+                                hx-target='#objectUpdateModalTarget'
+                                class="oh-dropdown__link"
+                                data-toggle="oh-modal-toggle"
+                                data-target="#objectUpdateModal"
+                                data-key=".oh-kanban__section">
+                                <ion-icon name="create-outline" class="me-1"></ion-icon>
+                                {% trans "Edit Stage" %}
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if perms.recruitment.delete_stage %}
+                        <li class="oh-dropdown__item">
+                            <form action="{% url 'rec-stage-delete' stage.id %}"
+                                onsubmit="return confirm('{% trans "Are you sure you want to delete this stage?" %}');"
+                                method="post">
+                                {% csrf_token %}
+                                <button class="oh-dropdown__link oh-dropdown__link--danger">
+                                    <ion-icon name="trash-outline" class="me-1"></ion-icon>
+                                    {% trans "Delete Stage" %}
+                                </button>
+                            </form>
+                        </li>
+                        {% endif %}
+                    </ul>
                 </div>
+            </div>
             {% endif %}
-
         </div>
-    </div>
+    </div>{# /kp-stage-head #}
 
-    <div
-        class="oh-kanban__section-body ui-sortable candidate-container hx-sortable"
+    {# Drop zone / candidates body #}
+    <div class="oh-kanban__section-body ui-sortable candidate-container hx-sortable"
         data-stage-id='{{stage.id}}'
         data-recruitment-id="{{rec.id}}"
         hx-get="{% url 'candidate-stage-component' %}?stage_id={{stage.id}}&view=card"
         hx-trigger="load"
-        id="kanbanCandidates{{stage.id}}"
-        >
-        <div class="animated-background" ondrop="event.stopPropagation()" ondrag="event.stopPropagation()"></div>
+        id="kanbanCandidates{{stage.id}}">
 
+        {# Loading skeleton shown before HTMX swaps in cards #}
+        <div class="animated-background kp-empty-state" ondrop="event.stopPropagation()" ondrag="event.stopPropagation()">
+            <ion-icon name="people-outline"></ion-icon>
+            <span>{% trans "Loading…" %}</span>
+        </div>
     </div>
 
-</div>
+</div>{# /oh-kanban__section #}
 {% endfor %}
 
-
+{# Add Stage button #}
 {% if perms.recruitment.add_stage or request.user.employee_get in rec.recruitment_managers.all %}
-<div class="oh-kanban__add-container">
-    <button class="oh-btn oh-btn--x-small oh-kanban__add-section"data-target="#objectCreateModal" data-toggle="oh-modal-toggle" hx-get="{% url "rec-stage-create" %}?recruitment_id={{rec.id}}" hx-target="#objectCreateModalTarget">
+<div class="oh-kanban__add-container" style="align-self:flex-start;padding-top:8px;">
+    <button class="oh-btn oh-btn--x-small oh-kanban__add-section"
+        data-target="#objectCreateModal"
+        data-toggle="oh-modal-toggle"
+        hx-get="{% url "rec-stage-create" %}?recruitment_id={{rec.id}}"
+        hx-target="#objectCreateModalTarget">
         <ion-icon class="me-1 md hydrated" name="add-outline" role="img" aria-label="add outline"></ion-icon>
-        {% trans "Stage" %}
+        {% trans "Add Stage" %}
     </button>
 </div>
 {% endif %}
+
 <script>
-    function initializeSortable() {
-        $(".pipeline_item").parent().sortable({
-            handle: ".oh-kanban__section-head",
-            connectWith: ".pipeline_item",
-            placeholder: "ui-state-highlight",
-            stop: function(event, ui) {
-            }
-        }).disableSelection();
-    }
-
-    function executeScripts(container) {
-        const scripts = container.querySelectorAll('script');
-        scripts.forEach(script => {
-            const newScript = document.createElement('script');
-            newScript.src = script.src;
-            newScript.textContent = script.textContent;
-            document.body.appendChild(newScript);
-        });
-    }
-
-    document.addEventListener("htmx:afterSettle", function(event) {
-        if (event.detail.target.querySelectorAll(".pipeline_item").length > 0) {
-            initializeSortable();
-        }
-        executeScripts(event.detail.target);
+function initializeSortable() {
+    $(".pipeline_item").parent().sortable({
+        handle: ".oh-kanban__section-head",
+        connectWith: ".pipeline_item",
+        placeholder: "ui-state-highlight",
+        stop: function(event, ui) {}
+    }).disableSelection();
+}
+function executeScripts(container) {
+    const scripts = container.querySelectorAll('script');
+    scripts.forEach(script => {
+        const newScript = document.createElement('script');
+        newScript.src = script.src;
+        newScript.textContent = script.textContent;
+        document.body.appendChild(newScript);
     });
-
-
-    $(document).ready(function() {
+}
+document.addEventListener("htmx:afterSettle", function(event) {
+    if (event.detail.target.querySelectorAll(".pipeline_item").length > 0) {
         initializeSortable();
+    }
+    executeScripts(event.detail.target);
+});
+$(document).ready(function() {
+    initializeSortable();
+
+    // Drop zone highlight on drag enter/leave
+    $(document).on("sortstart", ".hx-sortable", function() {
+        $(".candidate-container").addClass("kp-drop-active");
     });
+    $(document).on("sortstop", ".hx-sortable", function() {
+        $(".candidate-container").removeClass("kp-drop-active");
+    });
+});
 </script>
 <script>
-initialAvtiveTab = $(".oh-tabs__content--active").length
+initialAvtiveTab = $(".oh-tabs__content--active").length;
 if (!initialAvtiveTab) {
-    $(".oh-tabs__tab:first").click()
+    $(".oh-tabs__tab:first").click();
 }
 </script>
-
 <script src="{% static 'pipeline/search.js' %}"></script>
 <script src="{% static 'pipeline/load.js' %}"></script>
 <script src="{% static 'pipeline/badge.js' %}"></script>

@@ -2,6 +2,7 @@
 {% load static %}
 {% load basefilters %}
 {% load horillafilters %}
+{# can_approve_leave filter: True if user can approve a SPECIFIC leave request #}
 {% include 'filter_tags.html' %}
 {% if not request.GET.dashboard %}
     {% if messages %}
@@ -16,7 +17,7 @@
         </div>
     {% endif %}
 
-    <div class="d-flex flex-row-reverse mb-2">
+    <div class="d-flex flex-row-reverse mb-2 align-items-center flex-wrap gap-1">
         <span class="me-3 review_ongoing"
             onclick="$('[name=status]').val('rejected');$('[name=status]').first().change();$('.filterButton').click()"
             style="cursor: pointer">
@@ -41,6 +42,14 @@
             <span class="oh-dot oh-dot--small me-1" style="background-color:orange"></span>
             {% trans "Requested" %}
         </span>
+        {% if request.user|is_reportingmanager or request.user|is_leave_approval_manager or perms.leave.change_leaverequest %}
+        <span class="me-3"
+            onclick="$('[name=status]').val('requested');$('[name=status]').first().change();$('.filterButton').click()"
+            style="cursor: pointer; font-weight:600; border-left: 2px solid #dee2e6; padding-left: 12px; margin-left: 4px;">
+            <ion-icon name="time-outline" style="vertical-align:middle;color:#4f46e5;margin-right:3px;"></ion-icon>
+            <span style="color:#4f46e5;">{% trans "Pending My Approval" %}</span>
+        </span>
+        {% endif %}
     </div>
     <!-- start of selection buttons -->
     <div class="oh-checkpoint-badge text-success mb-2" id="selectAllLeaverequests" style="cursor: pointer">
@@ -187,35 +196,44 @@
                                 {% endif %}
                             </div>
                             <div class="oh-sticky-table__td" onclick="event.stopPropagation()">
-                                {% if request.user|is_reportingmanager or perms.leave.change_leaverequest or perms.leave.delete_leaverequest or request.user|is_leave_approval_manager or perms.base.add_penaltyaccounts %}
+                                {% if leave_request|can_approve_leave:request.user or perms.leave.delete_leaverequest or perms.base.add_penaltyaccounts %}
                                     <div class="oh-btn-group">
-                                        {% if request.user|is_reportingmanager or perms.base.add_penaltyaccounts or request.user|is_leave_approval_manager %}
+                                        {% if leave_request|can_approve_leave:request.user or perms.base.add_penaltyaccounts %}
                                             <button data-toggle="oh-modal-toggle" data-target="#penaltyModal" hx-target="#penaltyModalBody"
                                                 hx-get="{% url 'leave-cut-penalty' leave_request.id %}?{{pd}}" type='submit'
                                                 class="oh-btn oh-btn--danger-outline oh-btn--light-bkg w-100" title="{% trans 'Penalty' %}">
                                                 <ion-icon name="information-circle-outline"></ion-icon>
                                             </button>
                                         {% endif %}
-                                        {% if request.user|is_reportingmanager or perms.leave.change_leaverequest or perms.leave.delete_leaverequest or request.user|is_leave_approval_manager%}
-                                            {% if request.user|is_reportingmanager or perms.leave.change_leaverequest or request.user|is_leave_approval_manager %}
+                                        {% if leave_request|can_approve_leave:request.user %}
                                             <button class="oh-btn oh-btn--light-bkg w-100" title="{% trans 'Edit' %}"
                                                 data-toggle="oh-modal-toggle" data-target="#objectUpdateModal"
                                                 hx-get="{% url 'request-update' leave_request.id %}"
                                                 hx-target="#objectUpdateModalTarget"><ion-icon name="create-outline"></ion-icon></button>
-                                            {% endif %}
                                             {% if leave_request.status == 'requested' %}
-                                                {% if request.user|is_reportingmanager or perms.leave.delete_leaverequest or request.user|is_leave_approval_manager %}
-                                                    <a class="oh-btn oh-btn--danger-outline oh-btn--light-bkg w-100" id="delete-link"
-                                                        hx-confirm="{% trans " Are you sure you want to delete ?" %}"
-                                                        hx-get="{% url 'request-delete' leave_request.id %}?{{pd}}" hx-target="#leaveRequest"
-                                                        title="{% trans 'Delete' %}">
-                                                        <ion-icon name="trash-outline"></ion-icon>
-                                                    </a>
-                                                {% endif %}
+                                                <a class="oh-btn oh-btn--danger-outline oh-btn--light-bkg w-100" id="delete-link"
+                                                    hx-confirm="{% trans "Are you sure you want to delete?" %}"
+                                                    hx-get="{% url 'request-delete' leave_request.id %}?{{pd}}" hx-target="#leaveRequest"
+                                                    title="{% trans 'Delete' %}">
+                                                    <ion-icon name="trash-outline"></ion-icon>
+                                                </a>
                                             {% else %}
                                                 <button class="oh-btn oh-btn--light-bkg w-50" disabled>
                                                     <ion-icon name="trash-outline"></ion-icon>
-                                                </button></td>
+                                                </button>
+                                            {% endif %}
+                                        {% elif perms.leave.delete_leaverequest %}
+                                            {% if leave_request.status == 'requested' %}
+                                                <a class="oh-btn oh-btn--danger-outline oh-btn--light-bkg w-100" id="delete-link"
+                                                    hx-confirm="{% trans "Are you sure you want to delete?" %}"
+                                                    hx-get="{% url 'request-delete' leave_request.id %}?{{pd}}" hx-target="#leaveRequest"
+                                                    title="{% trans 'Delete' %}">
+                                                    <ion-icon name="trash-outline"></ion-icon>
+                                                </a>
+                                            {% else %}
+                                                <button class="oh-btn oh-btn--light-bkg w-50" disabled>
+                                                    <ion-icon name="trash-outline"></ion-icon>
+                                                </button>
                                             {% endif %}
                                         {% endif %}
                                     </div>
@@ -230,7 +248,7 @@
                                     {% trans "Penalties" %} :{{leave_request.get_penalties_count}}</div>
                             {% endif %}
                         </div>
-                        {% if request.user|is_reportingmanager or perms.leave.change_leaverequest or request.user|is_leave_approval_manager%}
+                        {% if leave_request|can_approve_leave:request.user %}
                             <div class="oh-sticky-table__td oh-sticky-table__right" onclick="event.stopPropagation()">
                                 <div class="oh-btn-group">
                                     {% if leave_request.status == 'cancelled' %}

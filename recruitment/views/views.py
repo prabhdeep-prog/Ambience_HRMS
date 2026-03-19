@@ -89,6 +89,7 @@ from recruitment.forms import (
     CandidateDocumentRequestForm,
     CandidateDocumentUpdateForm,
     CandidateExportForm,
+    PostJobForm,
     RecruitmentCreationForm,
     RejectReasonForm,
     ResumeForm,
@@ -283,6 +284,75 @@ def recruitment(request):
             return HorillaRedirect(request)
     return render(
         request, "recruitment/recruitment_form.html", {"form": form, "dynamic": dynamic}
+    )
+
+
+@login_required
+@permission_required(perm="recruitment.add_recruitment")
+def post_job(request):
+    """
+    Simplified one-step job posting view.
+    Creates a recruitment with default pipeline stages and immediately publishes it
+    to the Open Jobs portal — no extra configuration needed.
+    """
+    form = PostJobForm()
+    if request.method == "POST":
+        form = PostJobForm(request.POST)
+        if form.is_valid():
+            try:
+                recruitment_obj = form.save(commit=False)
+                recruitment_obj.is_published = True
+                recruitment_obj.is_active = True
+                recruitment_obj.closed = False
+                recruitment_obj.publish_in_linkedin = False
+                # job_position_id is editable=False on the model but required for
+                # unique_together; derive it from the first selected open_position.
+                first_position = form.cleaned_data["open_positions"].first()
+                recruitment_obj.job_position_id = first_position
+                recruitment_obj.save()
+                # Set M2M fields after the initial save
+                recruitment_obj.open_positions.set(form.cleaned_data["open_positions"])
+                managers_qs = form.cleaned_data.get("recruitment_managers")
+                if managers_qs:
+                    recruitment_obj.recruitment_managers.set(managers_qs)
+                    with contextlib.suppress(Exception):
+                        users = [
+                            emp.employee_user_id
+                            for emp in recruitment_obj.recruitment_managers.select_related(
+                                "employee_user_id"
+                            )
+                        ]
+                        notify.send(
+                            request.user.employee_get,
+                            recipient=users,
+                            verb="You are chosen as one of recruitment manager",
+                            verb_ar="تم اختيارك كأحد مديري التوظيف",
+                            verb_de="Sie wurden als einer der Personalvermittler ausgewählt",
+                            verb_es="Has sido elegido/a como uno de los gerentes de contratación",
+                            verb_fr="Vous êtes choisi(e) comme l'un des responsables du recrutement",
+                            icon="people-circle",
+                            redirect=reverse("pipeline"),
+                        )
+                messages.success(
+                    request,
+                    _(
+                        "Job posted successfully! It is now live on the Open Jobs portal "
+                        "with a 6-stage pipeline ready for candidates."
+                    ),
+                )
+                return redirect(reverse("recruitment-view"))
+            except Exception as exc:
+                messages.error(
+                    request,
+                    _(
+                        "Could not post the job: %(error)s"
+                    ) % {"error": str(exc)},
+                )
+    pipeline_stages = ["Applied", "Screening", "Interview", "Offer", "Hired", "Rejected"]
+    return render(
+        request,
+        "recruitment/post_job.html",
+        {"form": form, "pipeline_stages": pipeline_stages},
     )
 
 

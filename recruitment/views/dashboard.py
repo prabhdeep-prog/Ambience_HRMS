@@ -7,7 +7,7 @@ This module is used to write dashboard related views
 import datetime
 
 from django.core import serializers
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _
@@ -35,128 +35,116 @@ def stage_type_candidate_count(rec, stage_type):
 @manager_can_enter(perm="recruitment.view_recruitment")
 def dashboard(request):
     """
-    This method is used to render dashboard for recruitment module
+    Recruitment dashboard — aggregate stats cached 5 min with stampede protection.
+
+    Previous implementation fired 5N queries (N = JobPosition count) for the
+    per-job stage breakdown, plus separate loops for manager mapping and
+    vacancy totals.
+
+    New implementation collapses the 5N per-stage queries into ONE annotated
+    query using conditional COUNT expressions.  The full context dict
+    (minus live querysets) is cached; only two lightweight queryset evals
+    (onboard_candidates, skill_zone) remain outside the cache.
     """
-    candidates = Candidate.objects.all()
-    stage_chart_count = 0
-    vacancy_chart = Recruitment.objects.filter(closed=False, is_event_based=False)
-    if vacancy_chart.exists():
-        dep_vacancy = 1
-    else:
-        dep_vacancy = 0
-    employee_info = EmployeeWorkInformation.objects.all()
-    joining_list = []
-    for rec in employee_info:
-        if rec.date_joining != None:
-            joining_list.append("OK")
-    if joining_list != []:
-        joining = 1
-    else:
-        joining = 0
+    from horilla.cache_utils import stampede_cache
 
-    jobs = JobPosition.objects.all()
-    all_job = []
-    for job in jobs:
-        jobpos = job.job_position
-        all_job.append(jobpos)
-
-    initial = []
-    for job in jobs:
-        ini = Candidate.objects.filter(
-            job_position_id=job, stage_id__stage_type="initial"
+    def _compute_stats():
+        # ── Per-job stage breakdown: 5N → 1 query ─────────────────────────────
+        # Annotate each JobPosition with candidate counts per stage type in a
+        # single SQL query instead of 5 separate loops.
+        jobs_qs = JobPosition.objects.annotate(
+            initial_count=Count(
+                "candidate", filter=Q(candidate__stage_id__stage_type="initial"), distinct=True
+            ),
+            test_count=Count(
+                "candidate", filter=Q(candidate__stage_id__stage_type="test"), distinct=True
+            ),
+            interview_count=Count(
+                "candidate", filter=Q(candidate__stage_id__stage_type="interview"), distinct=True
+            ),
+            hired_count=Count(
+                "candidate", filter=Q(candidate__stage_id__stage_type="hired"), distinct=True
+            ),
+            cancelled_count=Count(
+                "candidate", filter=Q(candidate__stage_id__stage_type="cancelled"), distinct=True
+            ),
+        ).values_list(
+            "job_position",
+            "initial_count", "test_count", "interview_count",
+            "hired_count", "cancelled_count",
         )
-        initial.append(ini.count())
+        # job_data is a list of (name, initial, test, interview, hired, cancelled)
+        job_data = list(jobs_qs)
 
-    test = []
-    for job in jobs:
-        tes = Candidate.objects.filter(job_position_id=job, stage_id__stage_type="test")
-        test.append(tes.count())
-
-    interview = []
-    for job in jobs:
-        inter = Candidate.objects.filter(
-            job_position_id=job, stage_id__stage_type="interview"
+        # ── Open recruitments ──────────────────────────────────────────────────
+        recruitment_qs = (
+            Recruitment.objects.filter(closed=False)
+            .prefetch_related("recruitment_managers", "stage_set__candidate_set")
         )
-        interview.append(inter.count())
+        ongoing_recruitments = recruitment_qs.count()
+        dep_vacancy = 1 if Recruitment.objects.filter(
+            closed=False, is_event_based=False
+        ).exists() else 0
 
-    hired = []
-    for job in jobs:
-        hire = Candidate.objects.filter(
-            job_position_id=job, stage_id__stage_type="hired"
+        # Stage chart: does ANY open recruitment have ≥1 candidate?
+        stage_chart_count = 0
+        for rec in recruitment_qs:
+            for stage_obj in rec.stage_set.all():
+                if stage_obj.candidate_set.filter(is_active=True).exists():
+                    stage_chart_count = 1
+                    break
+            if stage_chart_count:
+                break
+
+        # Manager mapping (uses prefetched M2M — no extra queries)
+        recruitment_manager_mapping = {}
+        total_vacancy = 0
+        for rec in recruitment_qs:
+            recruitment_manager_mapping[rec.title] = [
+                m.get_full_name() for m in rec.recruitment_managers.all()
+            ]
+            if rec.vacancy:
+                total_vacancy += rec.vacancy
+
+        # ── Candidate aggregates ───────────────────────────────────────────────
+        candidate_totals = Candidate.objects.aggregate(
+            total=Count("id"),
+            hired=Count("id", filter=Q(Q(hired=True) | Q(stage_id__stage_type="hired"))),
+            accepted=Count("id", filter=Q(offer_letter_status="accepted")),
         )
-        hired.append(hire.count())
-    cancelled = []
-    for job in jobs:
-        cancelled_candidates = Candidate.objects.filter(
-            job_position_id=job, stage_id__stage_type="cancelled"
+        total_candidates = candidate_totals["total"]
+        total_hired_candidates = candidate_totals["hired"]
+        accepted_count = candidate_totals["accepted"]
+
+        # ── Has any employee joined? (single existence check) ─────────────────
+        joining = 1 if EmployeeWorkInformation.objects.filter(
+            date_joining__isnull=False
+        ).exists() else 0
+
+        # ── Ratio calculations ────────────────────────────────────────────────
+        conversion_ratio = (
+            f"{(total_hired_candidates / total_candidates * 100):.1f}"
+            if total_candidates else 0
         )
-        cancelled.append(cancelled_candidates.count())
+        hired_ratio = (
+            f"{(total_hired_candidates / total_vacancy * 100):.1f}"
+            if total_vacancy else 0
+        )
+        total_candidate_ratio = (
+            f"{(total_candidates / total_vacancy * 100):.1f}"
+            if total_vacancy else 0
+        )
+        acceptance_ratio = (
+            f"{(accepted_count / total_hired_candidates * 100):.1f}"
+            if total_hired_candidates else 0
+        )
 
-    job_data = list(zip(all_job, initial, test, interview, hired, cancelled))
-
-    recruitment_obj = Recruitment.objects.filter(closed=False)
-    ongoing_recruitments = len(recruitment_obj)
-
-    for rec in recruitment_obj:
-        data = [stage_type_candidate_count(rec, type[0]) for type in Stage.stage_types]
-        for i in data:
-            stage_chart_count += i
-
-        if stage_chart_count >= 1:
-            stage_chart_count = 1
-
-    accepted = Candidate.objects.filter(offer_letter_status="accepted")
-    accepted_count = accepted.count()
-
-    recruitment_manager_mapping = {}
-
-    for rec in recruitment_obj:
-        recruitment_title = rec.title
-        managers = []
-
-        for manager in rec.recruitment_managers.all():
-            name = manager.get_full_name()
-            managers.append(name)
-
-        recruitment_manager_mapping[recruitment_title] = managers
-
-    total_vacancy = 0
-    for openings in recruitment_obj:
-        if openings.vacancy == None:
-            pass
-        else:
-            total_vacancy += openings.vacancy
-
-    hired_candidates = candidates.filter(
-        Q(hired=True) | Q(stage_id__stage_type="hired")
-    ).distinct()
-    total_candidates = len(candidates)
-    total_hired_candidates = len(hired_candidates)
-    conversion_ratio = 0
-    hired_ratio = 0
-    total_candidate_ratio = 0
-    acceptance_ratio = 0
-    if total_candidates != 0:
-        conversion_ratio = f"{((total_hired_candidates / total_candidates) * 100):.1f}"
-    if total_vacancy != 0:
-        hired_ratio = f"{((total_hired_candidates / total_vacancy) * 100):.1f}"
-        total_candidate_ratio = f"{((total_candidates / total_vacancy) * 100):.1f}"
-    if total_hired_candidates != 0:
-        acceptance_ratio = f"{((accepted_count / total_hired_candidates) * 100):.1f}"
-
-    skill_zone = SkillZone.objects.filter(is_active=True)
-    return render(
-        request,
-        "dashboard/dashboard.html",
-        {
+        return {
             "ongoing_recruitments": ongoing_recruitments,
             "total_candidate_ratio": total_candidate_ratio,
             "total_hired_candidates": total_hired_candidates,
             "conversion_ratio": conversion_ratio,
             "acceptance_ratio": acceptance_ratio,
-            "onboard_candidates": hired_candidates.filter(
-                onboarding_stage__isnull=False
-            ),
             "job_data": job_data,
             "total_vacancy": total_vacancy,
             "recruitment_manager_mapping": recruitment_manager_mapping,
@@ -164,10 +152,29 @@ def dashboard(request):
             "joining": joining,
             "dep_vacancy": dep_vacancy,
             "stage_chart_count": stage_chart_count,
-            "onboarding_count": hired_candidates.filter(
-                onboarding_stage__isnull=False
-            ).count(),
             "total_candidates": total_candidates,
+        }
+
+    stats = stampede_cache.get_or_compute(
+        key="horilla:dashboard:recruitment:main",
+        compute_fn=_compute_stats,
+        timeout=300,
+    )
+
+    # Live querysets that are not serialisable — fetched fresh but cheap.
+    hired_candidates = Candidate.objects.filter(
+        Q(hired=True) | Q(stage_id__stage_type="hired")
+    ).distinct()
+    onboard_candidates = hired_candidates.filter(onboarding_stage__isnull=False)
+    skill_zone = SkillZone.objects.filter(is_active=True)
+
+    return render(
+        request,
+        "dashboard/dashboard.html",
+        {
+            **stats,
+            "onboard_candidates": onboard_candidates,
+            "onboarding_count": onboard_candidates.count(),
             "skill_zone": skill_zone,
         },
     )

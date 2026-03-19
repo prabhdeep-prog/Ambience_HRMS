@@ -27,7 +27,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F, ProtectedError
 from django.db.models.query import QuerySet
 from django.forms import DateInput, Select
@@ -1088,7 +1088,26 @@ def employee_view(request):
     page_number = request.GET.get("page")
     error_message = request.session.pop("error_message", None)
 
-    queryset = Employee.objects.filter()
+    # ── N+1 fix ──────────────────────────────────────────────────────────────
+    # employee_view is the full-page entry point rendered on first load.
+    # The paginated card/list is actually driven by the HTMX employee_list
+    # view, but this view also calls paginator_qry on the filtered queryset
+    # and stores employee IDs in the session — both iterate the QS.
+    # Applying the same select_related strategy here avoids extra queries
+    # during the initial page build and session population loop.
+    # ─────────────────────────────────────────────────────────────────────────
+    queryset = Employee.objects.select_related(
+        "employee_work_info",
+        "employee_work_info__department_id",
+        "employee_work_info__job_position_id",
+        "employee_work_info__job_role_id",
+        "employee_work_info__shift_id",
+        "employee_work_info__work_type_id",
+        "employee_work_info__reporting_manager_id",
+        "employee_work_info__company_id",
+        "employee_work_info__employee_type_id",
+        "employee_user_id",
+    )
     filter_obj = EmployeeFilter(request.GET, queryset=queryset).qs
     if request.GET.get("is_active") != "False":
         filter_obj = filter_obj.filter(is_active=True)
@@ -1903,17 +1922,58 @@ def employee_list(request):
     search = request.GET.get("search")
     if isinstance(search, type(None)):
         search = ""
+    # ── N+1 fix ──────────────────────────────────────────────────────────────
+    # The employee list template renders up to 9 related-model values per row:
+    #   emp.employee_work_info                      (OneToOne reverse)
+    #   └─ .department_id                           (FK → Department)
+    #   └─ .job_position_id                         (FK → JobPosition)
+    #   └─ .job_role_id                             (FK → JobRole)
+    #   └─ .shift_id                                (FK → EmployeeShift)
+    #   └─ .work_type_id                            (FK → WorkType)
+    #   └─ .reporting_manager_id                    (FK → Employee, self-ref)
+    #   └─ .company_id                              (FK → Company)
+    #   └─ .employee_type_id                        (FK → EmployeeType)
+    #   employee_user_id                            (OneToOne → auth.User)
+    #
+    # All are FK / OneToOne — select_related is correct for every one.
+    # Django emits a single SQL query with LEFT OUTER JOINs for all paths.
+    # prefetch_related would be wrong here (separate IN query, designed for
+    # M2M / reverse-FK many-valued relations).
+    #
+    # EmployeeWorkInformation.tags is a ManyToMany field. It is NOT rendered
+    # in the employee list template, so we deliberately omit
+    # prefetch_related("employee_work_info__tags") to avoid an unnecessary
+    # extra query on every page load.
+    #
+    # reporting_manager_id is a self-referencing FK back to Employee.
+    # select_related fetches only the manager's Employee row (name display);
+    # we do NOT chain further into the manager's own work_info because that
+    # data is never accessed in the list.
+    # ─────────────────────────────────────────────────────────────────────────
+    _optimized_qs = Employee.objects.select_related(
+        "employee_work_info",
+        "employee_work_info__department_id",
+        "employee_work_info__job_position_id",
+        "employee_work_info__job_role_id",
+        "employee_work_info__shift_id",
+        "employee_work_info__work_type_id",
+        "employee_work_info__reporting_manager_id",  # self-ref FK, one level
+        "employee_work_info__company_id",
+        "employee_work_info__employee_type_id",
+        "employee_user_id",  # OneToOne → auth.User (used by permission checks)
+    )
+
     if request.GET.get("is_active") is None:
         filter_obj = EmployeeFilter(
             request.GET,
-            queryset=Employee.objects.filter(
+            queryset=_optimized_qs.filter(
                 employee_first_name__icontains=search, is_active=True
             ),
         )
     else:
         filter_obj = EmployeeFilter(
             request.GET,
-            queryset=Employee.objects.filter(employee_first_name__icontains=search),
+            queryset=_optimized_qs.filter(employee_first_name__icontains=search),
         )
     employees = filtersubordinatesemployeemodel(
         request, filter_obj.qs, "employee.view_employee"
@@ -2850,6 +2910,7 @@ def get_employees_birthday(request):
     )
 
 
+@transaction.non_atomic_requests
 @login_required
 @manager_can_enter("employee.view_employee")
 def dashboard(request):
@@ -2918,80 +2979,116 @@ def joining_week_count(request):
 @login_required
 def dashboard_employee(request):
     """
-    Active and in-active employee dashboard
+    Active and in-active employee dashboard — cached 5 min, stampede-protected.
+
+    Replaces two separate len(queryset.filter(...)) calls with two .count()
+    calls on a single DB query, then caches the result.
     """
-    labels = [
-        _("Active"),
-        _("In-Active"),
-    ]
-    employees = Employee.objects.filter()
-    response = {
-        "dataSet": [
-            {
-                "label": _("Employees"),
-                "data": [
-                    len(employees.filter(is_active=True)),
-                    len(employees.filter(is_active=False)),
-                ],
-            },
-        ],
-        "labels": labels,
-    }
+    from django.db.models import Count, Q
+    from horilla.cache_utils import stampede_cache
+
+    def _compute():
+        totals = Employee.objects.aggregate(
+            active=Count("id", filter=Q(is_active=True)),
+            inactive=Count("id", filter=Q(is_active=False)),
+        )
+        return {
+            "dataSet": [
+                {
+                    "label": str(_("Employees")),
+                    "data": [totals["active"], totals["inactive"]],
+                },
+            ],
+            "labels": [str(_("Active")), str(_("In-Active"))],
+        }
+
+    response = stampede_cache.get_or_compute(
+        key="horilla:dashboard:employee:active_inactive",
+        compute_fn=_compute,
+        timeout=300,
+    )
     return JsonResponse(response)
 
 
 @login_required
 def dashboard_employee_gender(request):
     """
-    This method is used to filter out gender vise employees
-    """
-    labels = [_("Male"), _("Female"), _("Other")]
-    employees = Employee.objects.filter(is_active=True)
+    Gender breakdown chart — cached 5 min, stampede-protected.
 
-    response = {
-        "dataSet": [
-            {
-                "label": _("Employees"),
-                "data": [
-                    len(employees.filter(gender="male")),
-                    len(employees.filter(gender="female")),
-                    len(employees.filter(gender="other")),
-                ],
-            },
-        ],
-        "labels": labels,
-    }
+    Replaces three separate len(queryset.filter(gender=...)) calls with a
+    single annotated aggregate query.
+    """
+    from django.db.models import Count, Q
+    from horilla.cache_utils import stampede_cache
+
+    def _compute():
+        totals = Employee.objects.filter(is_active=True).aggregate(
+            male=Count("id", filter=Q(gender="male")),
+            female=Count("id", filter=Q(gender="female")),
+            other=Count("id", filter=Q(gender="other")),
+        )
+        return {
+            "dataSet": [
+                {
+                    "label": str(_("Employees")),
+                    "data": [totals["male"], totals["female"], totals["other"]],
+                },
+            ],
+            "labels": [str(_("Male")), str(_("Female")), str(_("Other"))],
+        }
+
+    response = stampede_cache.get_or_compute(
+        key="horilla:dashboard:employee:gender",
+        compute_fn=_compute,
+        timeout=300,
+    )
     return JsonResponse(response)
 
 
 @login_required
 def dashboard_employee_department(request):
     """
-    This method is used to find the count of employees corresponding to the departments
+    Department headcount chart — cached 5 min, stampede-protected.
+
+    Previous implementation: 2N queries (N = number of departments) via a
+    Python for-loop that called Employee.objects.filter(...) twice per dept.
+
+    New implementation: ONE annotated query using COUNT + CASE so the DB does
+    all the grouping, returning only departments that have ≥1 active employee.
     """
-    labels = []
-    count = []
-    departments = Department.objects.all()
-    for dept in departments:
-        if len(
-            Employee.objects.filter(
-                employee_work_info__department_id__department=dept, is_active=True
-            )
-        ):
-            labels.append(dept.department)
-            count.append(
-                len(
-                    Employee.objects.filter(
-                        employee_work_info__department_id__department=dept,
-                        is_active=True,
-                    )
+    from django.db.models import Count, Q
+    from horilla.cache_utils import stampede_cache
+
+    def _compute():
+        dept_counts = (
+            Department.objects.annotate(
+                active_count=Count(
+                    "employeeworkinformation__employee_id",
+                    filter=Q(
+                        employeeworkinformation__employee_id__is_active=True
+                    ),
+                    distinct=True,
                 )
             )
-    response = {
-        "dataSet": [{"label": "Department", "data": count}],
-        "labels": labels,
-        "message": _("No Data Found..."),
-    }
+            .filter(active_count__gt=0)
+            .values_list("department", "active_count")
+            .order_by("department")
+        )
+
+        labels = [row[0] for row in dept_counts]
+        counts = [row[1] for row in dept_counts]
+
+        return {
+            "dataSet": [{"label": "Department", "data": counts}],
+            "labels": labels,
+            "message": str(_("No Data Found...")),
+        }
+
+    response = stampede_cache.get_or_compute(
+        key="horilla:dashboard:employee:department",
+        compute_fn=_compute,
+        timeout=300,
+    )
     return JsonResponse(response)
 
 

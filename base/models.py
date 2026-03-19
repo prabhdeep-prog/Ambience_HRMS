@@ -1890,3 +1890,137 @@ class NotificationSound(models.Model):
 
 
 User.add_to_class("is_new_employee", models.BooleanField(default=False))
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Background Task Progress Tracking
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class TaskProgress(models.Model):
+    """
+    Persists the live state of a Celery task so the frontend can render a
+    progress bar without connecting directly to Redis / Flower.
+
+    Lifecycle
+    ─────────
+      1. View creates a TaskProgress row (status=PENDING) and dispatches the
+         Celery task, passing task_progress_id to the task.
+      2. Celery signal handler (celery.py) flips status → PROGRESS on prerun.
+      3. The task increments completed_items as it processes each record.
+      4. On completion the signal handler flips status → SUCCESS/FAILURE.
+      5. Frontend polls /tasks/status/<task_id>/ until status ∈ {SUCCESS,FAILURE}.
+
+    Dead-letter connection
+    ──────────────────────
+      When a task exhausts max_retries, the on_failure signal sets
+      status=FAILURE and the task routes itself to the dead_letter queue
+      (see payroll/tasks.py).  Ops staff query
+        TaskProgress.objects.filter(status="FAILURE", retries_exhausted=True)
+      to find and manually re-queue or dismiss stuck tasks.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", _("Pending")
+        PROGRESS = "PROGRESS", _("In Progress")
+        SUCCESS = "SUCCESS", _("Success")
+        FAILURE = "FAILURE", _("Failure")
+        REVOKED = "REVOKED", _("Revoked")
+
+    task_id = models.CharField(
+        max_length=255,
+        unique=True,
+        db_index=True,
+        help_text=_("Celery task UUID"),
+    )
+    task_name = models.CharField(max_length=255)
+    description = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text=_("Human-readable label shown in the UI, e.g. 'Payroll Jan 2025'"),
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    total_items = models.PositiveIntegerField(
+        default=0, help_text=_("Total records to process (e.g. employee count)")
+    )
+    completed_items = models.PositiveIntegerField(
+        default=0, help_text=_("Records successfully processed so far")
+    )
+    failed_items = models.PositiveIntegerField(
+        default=0, help_text=_("Records that raised an error during processing")
+    )
+    retries_exhausted = models.BooleanField(
+        default=False,
+        help_text=_("True when the task has used all retry attempts — routed to DLQ"),
+    )
+    initiated_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="initiated_tasks",
+    )
+    result_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=_("Summary payload returned by the task on success"),
+    )
+    error_message = models.TextField(
+        blank=True,
+        help_text=_("Last exception string, populated on FAILURE"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = _("Task Progress")
+        verbose_name_plural = _("Task Progresses")
+        indexes = [
+            models.Index(fields=["status", "task_name"]),
+        ]
+
+    def __str__(self):
+        return f"{self.task_name} [{self.task_id[:8]}] — {self.status}"
+
+    @property
+    def progress_percent(self) -> float:
+        """0.0–100.0 float, safe when total_items is 0."""
+        if self.total_items == 0:
+            return 0.0
+        return round((self.completed_items / self.total_items) * 100, 1)
+
+    def increment_completed(self, count: int = 1) -> None:
+        """Atomically increment completed_items without a full model save."""
+        TaskProgress.objects.filter(pk=self.pk).update(
+            completed_items=models.F("completed_items") + count
+        )
+
+    def increment_failed(self, count: int = 1) -> None:
+        """Atomically increment failed_items without a full model save."""
+        TaskProgress.objects.filter(pk=self.pk).update(
+            failed_items=models.F("failed_items") + count
+        )
+
+    def as_dict(self) -> dict:
+        """Serialise to a dict suitable for JsonResponse."""
+        return {
+            "task_id": self.task_id,
+            "task_name": self.task_name,
+            "description": self.description,
+            "status": self.status,
+            "total_items": self.total_items,
+            "completed_items": self.completed_items,
+            "failed_items": self.failed_items,
+            "progress_percent": self.progress_percent,
+            "retries_exhausted": self.retries_exhausted,
+            "error_message": self.error_message,
+            "result_data": self.result_data,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

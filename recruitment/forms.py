@@ -371,6 +371,54 @@ class RecruitmentCreationForm(BaseModelForm):
         super().clean()
 
 
+class PostJobForm(BaseModelForm):
+    """
+    Simplified one-step form for quickly posting a new job opening.
+    Sets is_published, is_active, closed automatically in the view.
+    """
+
+    class Meta:
+        model = Recruitment
+        fields = [
+            "title",
+            "open_positions",
+            "vacancy",
+            "description",
+            "start_date",
+            "end_date",
+            "recruitment_managers",
+        ]
+        widgets = {
+            "description": forms.Textarea(
+                attrs={"data-summernote": "", "rows": 5}
+            ),
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        reload_queryset(self.fields)
+        self.fields["open_positions"].required = True
+        self.fields["open_positions"].label = _("Job Position(s)")
+        self.fields["vacancy"].required = True
+        self.fields["recruitment_managers"].required = False
+
+    def clean_vacancy(self):
+        vacancy = self.cleaned_data.get("vacancy")
+        if vacancy is not None and vacancy < 1:
+            raise forms.ValidationError(_("Vacancy must be at least 1."))
+        return vacancy
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get("open_positions"):
+            raise forms.ValidationError(
+                _("At least one job position is required to post a job.")
+            )
+        return cleaned_data
+
+
 class StageCreationForm(BaseModelForm):
     """
     Form for Stage model

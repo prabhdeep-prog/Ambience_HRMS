@@ -42,7 +42,6 @@ google-cloud-storage
 google-crc32c
 google-resumable-media
 googleapis-common-protos
-gunicorn
 html5lib
 Jinja2
 idna
@@ -90,3 +89,9 @@ psycopg2-binary
 whitenoise
 django-storages
 boto3
+# ── Caching and Background Tasks ─────────────────────────────────────────────────
+redis
+django-redis
+celery[redis]
+django-celery-beat
+kombu

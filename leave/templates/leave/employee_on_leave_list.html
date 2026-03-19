@@ -1,0 +1,189 @@
+{% extends 'index.html' %}
+{% load static i18n %}
+
+{% block content %}
+<div class="oh-wrapper">
+    <div class="oh-wrapper__top">
+        <div class="oh-breadcrumb">
+            <ol class="oh-breadcrumb__list">
+                <li class="oh-breadcrumb__item">
+                    <a href="{% url 'leave-dashboard' %}">{% trans "Leave" %}</a>
+                </li>
+                <li class="oh-breadcrumb__item">{% trans "Employees On Leave Today" %}</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="oh-container">
+        <div class="oh-page-header">
+            <div class="oh-page-header__left">
+                <h1 class="oh-page-title">
+                    <ion-icon name="airplane-outline"></ion-icon>
+                    {% trans "Employees On Leave Today" %}
+                </h1>
+            </div>
+            <div class="oh-page-header__right">
+                <a href="{% url 'leave-dashboard' %}" class="oh-btn oh-btn--secondary">
+                    <ion-icon name="arrow-back-outline"></ion-icon>
+                    {% trans "Back to Dashboard" %}
+                </a>
+            </div>
+        </div>
+
+        <div class="oh-card">
+            <div class="oh-card__body">
+                {% if leaves %}
+                    <style>
+                        .on-leave-grid {
+                            display: grid;
+                            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                            gap: 1.5rem;
+                            padding: 1.5rem 0;
+                        }
+
+                        .on-leave-card {
+                            background: #fff;
+                            border: 1px solid #e8e8e8;
+                            border-radius: 8px;
+                            padding: 1.25rem;
+                            cursor: pointer;
+                            transition: all 0.2s ease;
+                            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                        }
+
+                        .on-leave-card:hover {
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                            border-color: #d0d0d0;
+                            transform: translateY(-2px);
+                        }
+
+                        .on-leave-card__avatar {
+                            width: 70px;
+                            height: 70px;
+                            border-radius: 50%;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            margin-bottom: 1rem;
+                            overflow: hidden;
+                        }
+
+                        .on-leave-card__avatar img {
+                            width: 100%;
+                            height: 100%;
+                            object-fit: cover;
+                        }
+
+                        .on-leave-card__name {
+                            font-weight: 600;
+                            font-size: 1rem;
+                            color: #333;
+                            margin-bottom: 0.5rem;
+                            word-break: break-word;
+                        }
+
+                        .on-leave-card__info-row {
+                            display: flex;
+                            align-items: center;
+                            margin-bottom: 0.75rem;
+                            font-size: 0.9rem;
+                            color: #666;
+                        }
+
+                        .on-leave-card__info-row ion-icon {
+                            margin-right: 0.5rem;
+                            color: #999;
+                            font-size: 1.1rem;
+                        }
+
+                        .on-leave-card__department {
+                            font-size: 0.9rem;
+                            color: #666;
+                        }
+
+                        .on-leave-card__leave-type {
+                            display: inline-block;
+                            background: #f0f4ff;
+                            color: #667eea;
+                            padding: 0.4rem 0.8rem;
+                            border-radius: 4px;
+                            font-size: 0.8rem;
+                            font-weight: 500;
+                            margin-top: 0.5rem;
+                        }
+
+                        .on-leave-card__dates {
+                            font-size: 0.85rem;
+                            color: #999;
+                            margin-top: 0.75rem;
+                            padding-top: 0.75rem;
+                            border-top: 1px solid #f0f0f0;
+                        }
+                    </style>
+
+                    <div class="on-leave-grid" id="leaveEmployee">
+                        {% for leave in leaves %}
+                            <div class="on-leave-card" role="button"
+                                {% if perms.leave.view_leaverequest %}
+                                    onclick="$('#objectDetailsModalW25').addClass('oh-modal--show');" data-target="#objectDetailsModalW25"
+                                    hx-get="{% url 'one-request-view' leave.id %}?instances_ids={{requests_ids}}"
+                                    hx-target="#objectDetailsModalW25Target"
+                                {% endif %}>
+                                <div class="on-leave-card__avatar">
+                                    <img src="{{leave.employee_id.get_avatar}}" alt="{{leave.employee_id.get_full_name}}" />
+                                </div>
+                                <div class="on-leave-card__name">{{leave.employee_id.get_full_name}}</div>
+
+                                {% if leave.employee_id.employee_work_info.department_id %}
+                                    <div class="on-leave-card__info-row">
+                                        <ion-icon name="briefcase-outline"></ion-icon>
+                                        <span class="on-leave-card__department">
+                                            {{ leave.employee_id.employee_work_info.department_id.department }}
+                                        </span>
+                                    </div>
+                                {% endif %}
+
+                                {% if leave.employee_id.employee_work_info.designation_id %}
+                                    <div class="on-leave-card__info-row">
+                                        <ion-icon name="person-outline"></ion-icon>
+                                        <span>{{ leave.employee_id.employee_work_info.designation_id.designation }}</span>
+                                    </div>
+                                {% endif %}
+
+                                {% if leave.leave_type_id %}
+                                    <div>
+                                        <span class="on-leave-card__leave-type">
+                                            {{ leave.leave_type_id.name }}
+                                        </span>
+                                    </div>
+                                {% endif %}
+
+                                {% if leave.start_date and leave.end_date %}
+                                    <div class="on-leave-card__dates">
+                                        <strong>{{ leave.start_date|date:"M d" }}</strong> - <strong>{{ leave.end_date|date:"M d, Y" }}</strong>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% elif today_holidays %}
+                    <div style="text-align: center; padding: 3rem;">
+                        <img style="width: 100px; margin: 20px auto; display: block;"
+                            src="{% static 'images/ui/sunbed outline.png' %}" alt="" />
+                        <h3 style="font-size: 18px; color: #666; margin-top: 1rem;">
+                            {% trans "Today is a holiday." %}
+                        </h3>
+                    </div>
+                {% else %}
+                    <div class="oh-empty">
+                        <img src="{% static 'images/ui/search.svg' %}" class="oh-empty__image" alt="" />
+                        <h1 class="oh-empty__title">{% trans "No Records found." %}</h1>
+                        <p class="oh-empty__subtitle">{% trans "No employees have taken leave today." %}</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -121,7 +121,14 @@ WSGI_APPLICATION = "horilla.wsgi.application"
 
 if env("DATABASE_URL", default=None):
     DATABASES = {
-        "default": env.db(),
+        "default": {
+            **env.db(),
+            # Keep TCP connections alive for up to 60 s per worker thread.
+            # Eliminates a TCP + TLS handshake (~5–15 ms) on every request.
+            # Set to 0 to revert to a new connection per request (default).
+            # Override via CONN_MAX_AGE env var, e.g. CONN_MAX_AGE=0 for pgBouncer.
+            "CONN_MAX_AGE": env.int("CONN_MAX_AGE", default=60),
+        }
     }
 else:
     DATABASES = {
@@ -138,6 +145,11 @@ else:
             "PASSWORD": env("DB_PASSWORD", default=""),
             "HOST": env("DB_HOST", default=""),
             "PORT": env("DB_PORT", default=""),
+            # Keep TCP connections alive for up to 60 s per worker thread.
+            # Eliminates a TCP + TLS handshake (~5–15 ms) on every request.
+            # Set CONN_MAX_AGE=0 in .env when using an external connection
+            # pooler (e.g. pgBouncer) to avoid connection ownership conflicts.
+            "CONN_MAX_AGE": env.int("CONN_MAX_AGE", default=60),
         }
     }
 
@@ -210,6 +222,188 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default=None)
 EMAIL_USE_TLS = env("EMAIL_USE_TLS")    # bool, default True
 EMAIL_USE_SSL = env("EMAIL_USE_SSL")    # bool, default False
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@horilla.com")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Django Cache — Redis backend (django-redis)
+# ──────────────────────────────────────────────────────────────────────────────
+# Install:  pip install django-redis
+#
+# Redis DB allocation
+#   DB 0 — Celery broker + result backend  (CELERY_BROKER_URL / RESULT_BACKEND)
+#   DB 1 — Django cache (this block)        ← keeps namespaces separate
+#
+# The KEY_PREFIX "horilla" is prepended to every cache key so that multiple
+# Horilla instances sharing the same Redis server don't collide.
+#
+# COMPRESSOR — zlib is enabled for the "default" backend.  Dashboard stats
+# serialise as small JSON dicts (<2 KB), so compression overhead is minimal
+# and memory usage is reduced for larger cached values (e.g. recruitment data).
+#
+# SOCKET_CONNECT_TIMEOUT / SOCKET_TIMEOUT — if Redis is unavailable, Django
+# will raise a cache error after 5 s rather than hanging indefinitely.
+# Wrap cache calls with `try/except` or use `cache.get(key, default)` so a
+# Redis outage degrades gracefully (falls back to recomputing from DB).
+#
+# SESSION_ENGINE / SESSION_CACHE_ALIAS — optional: uncomment to store Django
+# sessions in Redis instead of the DB table.  Speeds up every authenticated
+# request that touches the session.
+
+_CACHE_REDIS_URL = env("CACHE_REDIS_URL", default="redis://localhost:6379/1")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": _CACHE_REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            # Raise after N seconds instead of blocking indefinitely on connect.
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+            # Re-raise a stale broken-pipe as a cache error so Django can
+            # fall back to computing from DB rather than returning corrupt data.
+            "RETRY_ON_TIMEOUT": True,
+            # Cap the number of pooled connections.  Each Gunicorn worker has
+            # its own pool; 20 connections × 9 workers = 180 total connections
+            # which is well within Redis's default max of 10 000.
+            "CONNECTION_POOL_KWARGS": {"max_connections": 20},
+            # Serialiser — pickle is Django's default, json is safer but
+            # requires values to be JSON-serialisable (no QuerySets, datetimes
+            # must be converted to strings).  We use pickle here because some
+            # dashboard values include Decimal / date objects.
+            "SERIALIZER": "django_redis.serializers.pickle.PickleSerializer",
+        },
+        "KEY_PREFIX": "horilla",
+        # Default TTL for cache.set() calls that don't specify one.
+        # Dashboard views override this with explicit timeout= arguments.
+        "TIMEOUT": 300,
+    },
+}
+
+# Uncomment to store Django sessions in Redis (faster than DB-backed sessions):
+# SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+# SESSION_CACHE_ALIAS = "default"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Celery / Redis configuration
+# ──────────────────────────────────────────────────────────────────────────────
+# Set REDIS_URL in .env, e.g.: REDIS_URL=redis://localhost:6379/0
+# For production with TLS:      REDIS_URL=rediss://:password@host:6380/0
+_REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+
+CELERY_BROKER_URL = _REDIS_URL
+CELERY_RESULT_BACKEND = _REDIS_URL
+
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = env("TIME_ZONE", default="Asia/Kolkata")
+CELERY_ENABLE_UTC = True
+
+# ── Reliability ───────────────────────────────────────────────────────────────
+# Acknowledge only AFTER the task finishes.  If the worker crashes mid-task
+# the message is re-queued for another worker to pick up.
+CELERY_TASK_ACKS_LATE = True
+
+# Track STARTED state so TaskProgress can move from PENDING → PROGRESS.
+CELERY_TASK_TRACK_STARTED = True
+
+# Prevent one slow worker from hoarding messages.  Each worker fetches one
+# task at a time so bulk_processing workers don't starve high_priority ones.
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+
+# Restart worker child process every N tasks to prevent pdfkit / wkhtmltopdf
+# memory leaks from accumulating over a long-running worker.
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 50
+
+# ── Time limits ───────────────────────────────────────────────────────────────
+# Soft limit sends SIGTERM → task can clean up.  Hard limit sends SIGKILL.
+# Biometric sync: 5 min soft / 7 min hard.
+# Payroll generation: 20 min soft / 25 min hard (1 000 employees × pdfkit).
+CELERY_TASK_SOFT_TIME_LIMIT = env.int("CELERY_SOFT_TIME_LIMIT", default=300)
+CELERY_TASK_TIME_LIMIT = env.int("CELERY_HARD_TIME_LIMIT", default=420)
+
+# ── Result expiry ─────────────────────────────────────────────────────────────
+# Keep task results in Redis for 24 h (progress bars are polled within that window).
+CELERY_RESULT_EXPIRES = 86400
+
+# ── Queue definitions ─────────────────────────────────────────────────────────
+# kombu (installed with celery) provides explicit Queue/Exchange objects that
+# let you set exchange types and priorities.  We guard the import so that
+# `manage.py runserver` works even before `pip install celery` is run.
+# Without this guard, a missing kombu crashes Django at settings-import time.
+try:
+    from kombu import Exchange, Queue  # noqa: F401
+
+    CELERY_TASK_QUEUES = (
+        # Biometric pings and urgent alerts — fast worker pool.
+        Queue(
+            "high_priority",
+            Exchange("high_priority", type="direct"),
+            routing_key="high_priority",
+        ),
+        # Monthly payroll generation, bulk PDF/Excel export — heavy, slow.
+        Queue(
+            "bulk_processing",
+            Exchange("bulk_processing", type="direct"),
+            routing_key="bulk_processing",
+        ),
+        # General catch-all for lightweight tasks.
+        Queue(
+            "default",
+            Exchange("default", type="direct"),
+            routing_key="default",
+        ),
+        # Dead-letter destination for tasks that exhaust all retries.
+        # A dedicated worker consumes this queue so ops can inspect failures
+        # without them being silently dropped.  NOT automatically retried.
+        Queue(
+            "dead_letter",
+            Exchange("dead_letter", type="direct"),
+            routing_key="dead_letter",
+        ),
+    )
+except ImportError:
+    # Celery / kombu not installed yet — Django still boots normally.
+    # The queue names defined in CELERY_TASK_ROUTES below are enough for
+    # Celery to create the queues automatically on first worker start.
+    pass
+
+CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_TASK_DEFAULT_EXCHANGE = "default"
+CELERY_TASK_DEFAULT_ROUTING_KEY = "default"
+
+# ── Per-task routing ──────────────────────────────────────────────────────────
+CELERY_TASK_ROUTES = {
+    # Biometric → high_priority
+    "biometric.tasks.sync_biometric_device": {"queue": "high_priority"},
+    "biometric.tasks.sync_all_biometric_devices": {"queue": "high_priority"},
+    # Payroll bulk operations → bulk_processing
+    "payroll.tasks.generate_monthly_payroll": {"queue": "bulk_processing"},
+    "payroll.tasks.process_single_employee_payslip": {"queue": "bulk_processing"},
+    "payroll.tasks.bulk_export_payslip_pdf": {"queue": "bulk_processing"},
+    "payroll.tasks.finalize_payroll_batch": {"queue": "bulk_processing"},
+}
+
+# ── Beat periodic schedule (replaces APScheduler) ────────────────────────────
+# Add django-celery-beat to INSTALLED_APPS and run:
+#   python manage.py migrate django_celery_beat
+# Then these schedules are stored in the DB and editable via Django admin.
+#
+# from celery.schedules import crontab
+# CELERY_BEAT_SCHEDULE = {
+#     "auto-payslip-generate": {
+#         "task": "payroll.tasks.auto_payslip_generate",
+#         "schedule": crontab(minute=0, hour="*/3"),
+#     },
+#     "expire-contracts": {
+#         "task": "payroll.tasks.expire_contracts",
+#         "schedule": crontab(minute=0, hour="*/4"),
+#     },
+#     "sync-all-biometric-devices": {
+#         "task": "biometric.tasks.sync_all_biometric_devices",
+#         "schedule": crontab(minute="*/30"),
+#     },
+# }
 
 MESSAGE_TAGS = {
     messages.DEBUG: "oh-alert--warning",

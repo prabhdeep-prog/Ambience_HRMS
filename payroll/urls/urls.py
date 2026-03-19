@@ -8,10 +8,37 @@ from django.urls import include, path
 
 from payroll.models.models import Contract, Payslip
 from payroll.views import views
+from payroll.views import task_views
 
 urlpatterns = [
     path("", include("payroll.urls.component_urls")),
     path("", include("payroll.urls.tax_urls")),
+    # ── Background task endpoints ──────────────────────────────────────────
+    path(
+        "tasks/generate-monthly-payroll/",
+        task_views.start_monthly_payroll,
+        name="start-monthly-payroll",
+    ),
+    path(
+        "tasks/bulk-pdf-export/",
+        task_views.start_bulk_pdf_export,
+        name="start-bulk-pdf-export",
+    ),
+    path(
+        "tasks/status/<str:task_id>/",
+        task_views.task_status,
+        name="task-status",
+    ),
+    path(
+        "tasks/dead-letter/",
+        task_views.dead_letter_list,
+        name="dead-letter-list",
+    ),
+    path(
+        "tasks/dead-letter/<int:task_progress_id>/requeue/",
+        task_views.requeue_dead_letter,
+        name="requeue-dead-letter",
+    ),
     path("get-language-code/", views.get_language_code, name="get-language-code"),
     path("contract-create", views.contract_create, name="contract-create"),
     path(

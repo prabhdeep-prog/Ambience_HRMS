@@ -18,6 +18,7 @@ from recruitment.views import linkedin, views
 from recruitment.views.actions import get_mail_preview, get_template, get_template_hint
 
 urlpatterns = [
+    path("post-job", views.post_job, name="post-job"),
     path("recruitment-create", views.recruitment, name="recruitment-create"),
     path("recruitment-view", views.recruitment_view, name="recruitment-view"),
     path(

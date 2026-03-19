@@ -1,27 +1,99 @@
 {% load static i18n %}
+<style>
+    .on-leave-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+        padding: 1rem 0;
+    }
+
+    .on-leave-card {
+        background: #fff;
+        border: 1px solid #e8e8e8;
+        border-radius: 8px;
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .on-leave-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-color: #d0d0d0;
+        transform: translateY(-2px);
+    }
+
+    .on-leave-card__avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.75rem;
+        overflow: hidden;
+    }
+
+    .on-leave-card__avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .on-leave-card__name {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #333;
+        margin-bottom: 0.5rem;
+        word-break: break-word;
+    }
+
+    .on-leave-card__department {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0.75rem;
+    }
+
+    .on-leave-card__leave-type {
+        display: inline-block;
+        background: #f0f4ff;
+        color: #667eea;
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+</style>
+
 {% if leaves %}
-    <div class="oh-card-dashboard__body">
-        <ul class="oh-card-dashboard__user-list" id="leaveEmployee">
-            {% for leave in leaves %}
-                <li class="oh-card-dashboard__user-item" role="button">
-                    <div class="oh-profile oh-profile--md"
-                        {% if perms.leave.view_leaverequest %}
-                            onclick="$('#objectDetailsModalW25').addClass('oh-modal--show');" data-target="#objectDetailsModalW25"
-                            hx-get="{% url 'one-request-view' leave.id %}?instances_ids={{requests_ids}}"
-                            hx-target="#objectDetailsModalW25Target"
-                        {% endif %}>
-                        <div class="oh-profile__avatar mr-1">
-                            <img src="{{leave.employee_id.get_avatar}}" class="oh-profile__image" alt="" />
-                        </div>
-                        <span class="oh-profile__name oh-text--dark">{{leave.employee_id.get_full_name}}
-                        </span>
+    <div class="on-leave-grid" id="leaveEmployee">
+        {% for leave in leaves %}
+            <div class="on-leave-card" role="button"
+                {% if perms.leave.view_leaverequest %}
+                    onclick="$('#objectDetailsModalW25').addClass('oh-modal--show');" data-target="#objectDetailsModalW25"
+                    hx-get="{% url 'one-request-view' leave.id %}?instances_ids={{requests_ids}}"
+                    hx-target="#objectDetailsModalW25Target"
+                {% endif %}>
+                <div class="on-leave-card__avatar">
+                    <img src="{{leave.employee_id.get_avatar}}" alt="{{leave.employee_id.get_full_name}}" />
+                </div>
+                <div class="on-leave-card__name">{{leave.employee_id.get_full_name}}</div>
+                {% if leave.employee_id.employee_work_info.department_id %}
+                    <div class="on-leave-card__department">
+                        {{ leave.employee_id.employee_work_info.department_id.department }}
                     </div>
-                </li>
-            {% endfor %}
-        </ul>
+                {% endif %}
+                {% if leave.leave_type_id %}
+                    <span class="on-leave-card__leave-type">
+                        {{ leave.leave_type_id.name }}
+                    </span>
+                {% endif %}
+            </div>
+        {% endfor %}
     </div>
 {% elif today_holidays %}
-    <div style="height: 380px; display:flex;align-items: center;justify-content: center;" class="">
+    <div style="height: 300px; display:flex;align-items: center;justify-content: center;" class="">
         <div>
             <img style="display: block;width: 70px;margin: 20px auto ;"
                 src="{% static 'images/ui/sunbed outline.png' %}" class="" alt="" />

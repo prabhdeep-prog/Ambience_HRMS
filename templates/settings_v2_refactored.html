@@ -1,0 +1,325 @@
+{% extends 'index.html' %}
+{% load static i18n horillafilters %}
+
+{% block content %}
+<div class="oh-settings-page">
+  {# ============ HEADER ============ #}
+  <div class="oh-settings-header">
+    <div class="oh-settings-header__container">
+      <div class="oh-settings-header__left">
+        <h1 class="oh-settings-title">
+          <ion-icon name="settings-outline" class="oh-settings-title__icon"></ion-icon>
+          {% trans "System Settings" %}
+        </h1>
+        <p class="oh-settings-subtitle">{% trans "Manage your organization's configuration and preferences" %}</p>
+      </div>
+      <div class="oh-settings-header__right">
+        <div class="oh-help-button" title="{% trans 'Get help with settings' %}">
+          <ion-icon name="help-circle-outline"></ion-icon>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ============ MAIN LAYOUT ============ #}
+  <div class="oh-settings-container">
+
+    {# ---- SIDEBAR ---- #}
+    <aside class="oh-settings-sidebar">
+      <div class="oh-settings-sidebar__inner">
+
+        {# Search Bar #}
+        <div class="oh-settings-search">
+          <ion-icon name="search-outline" class="oh-settings-search__icon"></ion-icon>
+          <input
+            type="text"
+            class="oh-settings-search__input"
+            id="settingsSearch"
+            placeholder="{% trans 'Search settings...' %}"
+            autocomplete="off"
+          />
+        </div>
+
+        {# Navigation List #}
+        <nav class="oh-settings-nav">
+
+          {# ===== GENERAL SECTION ===== #}
+          <div class="oh-settings-nav__section">
+            <div class="oh-settings-nav__section-title">
+              <ion-icon name="settings-outline" class="oh-settings-nav__section-icon"></ion-icon>
+              <span>{% trans "General" %}</span>
+              <button class="oh-settings-nav__section-toggle" aria-label="{% trans 'Toggle General settings' %}">
+                <ion-icon name="chevron-down-outline"></ion-icon>
+              </button>
+            </div>
+            <ul class="oh-settings-nav__items oh-settings-nav__items--open" data-section="general">
+              <li>
+                <a href="{% url 'general-settings' %}" class="oh-settings-nav__link" data-settings-group="general-settings">
+                  <span class="oh-settings-nav__link-text">{% trans "General Settings" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% if perms.auth.view_permission %}
+              <li>
+                <a href="{% url 'employee-permission-assign' %}" class="oh-settings-nav__link" data-settings-group="employee-permission">
+                  <span class="oh-settings-nav__link-text">{% trans "Employee Permission" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+              {% if perms.auth.view_permission %}
+              <li>
+                <a href="{% url 'user-accessibility' %}" class="oh-settings-nav__link" data-settings-group="accessibility">
+                  <span class="oh-settings-nav__link-text">{% trans "Accessibility Restriction" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+              {% if perms.auth.view_group %}
+              <li>
+                <a href="{% url 'user-group-view' %}" class="oh-settings-nav__link" data-settings-group="user-group">
+                  <span class="oh-settings-nav__link-text">{% trans "User Groups" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+              {% if perms.base.view_company %}
+              <li>
+                <a href="{% url 'date-settings' %}" class="oh-settings-nav__link" data-settings-group="date-time">
+                  <span class="oh-settings-nav__link-text">{% trans "Date & Time Format" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+              {% if perms.base.view_tags or perms.employee.view_emplyeetag or perms.horilla_audit.view_audittag %}
+              <li>
+                <a href="{% url 'tag-view' %}" class="oh-settings-nav__link" data-settings-group="history-tags">
+                  <span class="oh-settings-nav__link-text">{% trans "History Tags" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+              {% if perms.base.view_dynamicemailconfiguration and not "outlook_auth"|app_installed %}
+              <li>
+                <a href="{% url 'mail-server-conf' %}" class="oh-settings-nav__link" data-settings-group="mail-server">
+                  <span class="oh-settings-nav__link-text">{% trans "Mail Server" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+              {% if "horilla_ldap"|app_installed %}
+                {% if perms.horilla_ldap.add_ldapsettings or perms.horilla_ldap.update_ldapsettings %}
+                <li>
+                  <a href="{% url 'ldap-settings' %}" class="oh-settings-nav__link" data-settings-group="ldap">
+                    <span class="oh-settings-nav__link-text">{% trans "LDAP Configuration" %}</span>
+                    <span class="oh-settings-nav__link-indicator"></span>
+                  </a>
+                </li>
+                {% endif %}
+              {% endif %}
+            </ul>
+          </div>
+
+          {# ===== BASE SECTION ===== #}
+          <div class="oh-settings-nav__section">
+            <div class="oh-settings-nav__section-title">
+              <ion-icon name="apps-outline" class="oh-settings-nav__section-icon"></ion-icon>
+              <span>{% trans "Organization" %}</span>
+              <button class="oh-settings-nav__section-toggle" aria-label="{% trans 'Toggle Organization settings' %}">
+                <ion-icon name="chevron-down-outline"></ion-icon>
+              </button>
+            </div>
+            <ul class="oh-settings-nav__items" data-section="base">
+              {% if perms.base.view_department %}
+              <li>
+                <a href="{% url 'department-view' %}" class="oh-settings-nav__link" data-settings-group="department">
+                  <span class="oh-settings-nav__link-text">{% trans "Departments" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+              {% if perms.base.view_jobposition %}
+              <li>
+                <a href="{% url 'job-position-view' %}" class="oh-settings-nav__link" data-settings-group="job-position">
+                  <span class="oh-settings-nav__link-text">{% trans "Job Positions" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+              {% if perms.base.view_jobrole %}
+              <li>
+                <a href="{% url 'job-role-view' %}" class="oh-settings-nav__link" data-settings-group="job-role">
+                  <span class="oh-settings-nav__link-text">{% trans "Job Roles" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+              {% if perms.base.view_company %}
+              <li>
+                <a href="{% url 'company-view' %}" class="oh-settings-nav__link" data-settings-group="company">
+                  <span class="oh-settings-nav__link-text">{% trans "Companies" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+            </ul>
+          </div>
+
+          {# ===== EMPLOYEE SECTION ===== #}
+          <div class="oh-settings-nav__section">
+            <div class="oh-settings-nav__section-title">
+              <ion-icon name="people-outline" class="oh-settings-nav__section-icon"></ion-icon>
+              <span>{% trans "Employee" %}</span>
+              <button class="oh-settings-nav__section-toggle" aria-label="{% trans 'Toggle Employee settings' %}">
+                <ion-icon name="chevron-down-outline"></ion-icon>
+              </button>
+            </div>
+            <ul class="oh-settings-nav__items" data-section="employee">
+              {% if perms.base.view_worktype %}
+              <li>
+                <a href="{% url 'work-type-view' %}" class="oh-settings-nav__link" data-settings-group="work-type">
+                  <span class="oh-settings-nav__link-text">{% trans "Work Types" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+              {% if perms.base.view_employeeshift %}
+              <li>
+                <a href="{% url 'employee-shift-view' %}" class="oh-settings-nav__link" data-settings-group="employee-shift">
+                  <span class="oh-settings-nav__link-text">{% trans "Employee Shifts" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+              {% if perms.base.view_employeetype %}
+              <li>
+                <a href="{% url 'employee-type-view' %}" class="oh-settings-nav__link" data-settings-group="employee-type">
+                  <span class="oh-settings-nav__link-text">{% trans "Employee Types" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+            </ul>
+          </div>
+
+          {# ===== ATTENDANCE SECTION ===== #}
+          {% if "attendance"|app_installed %}
+          <div class="oh-settings-nav__section">
+            <div class="oh-settings-nav__section-title">
+              <ion-icon name="checkmark-done-circle-outline" class="oh-settings-nav__section-icon"></ion-icon>
+              <span>{% trans "Attendance" %}</span>
+              <button class="oh-settings-nav__section-toggle" aria-label="{% trans 'Toggle Attendance settings' %}">
+                <ion-icon name="chevron-down-outline"></ion-icon>
+              </button>
+            </div>
+            <ul class="oh-settings-nav__items" data-section="attendance">
+              {% if perms.attendance.view_attendancevalidationcondition %}
+              <li>
+                <a href="{% url 'attendance-settings-view' %}" class="oh-settings-nav__link" data-settings-group="attendance-break">
+                  <span class="oh-settings-nav__link-text">{% trans "Break Points" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              <li>
+                <a href="{% url 'grace-settings-view' %}" class="oh-settings-nav__link" data-settings-group="grace-time">
+                  <span class="oh-settings-nav__link-text">{% trans "Grace Time" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+            </ul>
+          </div>
+          {% endif %}
+
+          {# ===== LEAVE SECTION ===== #}
+          {% if "leave"|app_installed %}
+          <div class="oh-settings-nav__section">
+            <div class="oh-settings-nav__section-title">
+              <ion-icon name="calendar-outline" class="oh-settings-nav__section-icon"></ion-icon>
+              <span>{% trans "Leave" %}</span>
+              <button class="oh-settings-nav__section-toggle" aria-label="{% trans 'Toggle Leave settings' %}">
+                <ion-icon name="chevron-down-outline"></ion-icon>
+              </button>
+            </div>
+            <ul class="oh-settings-nav__items" data-section="leave">
+              {% if perms.attendance.view_attendancevalidationcondition %}
+              <li>
+                <a href="{% url 'employee-past-leave-restriction' %}" class="oh-settings-nav__link" data-settings-group="leave-restrictions">
+                  <span class="oh-settings-nav__link-text">{% trans "Leave Restrictions" %}</span>
+                  <span class="oh-settings-nav__link-indicator"></span>
+                </a>
+              </li>
+              {% endif %}
+            </ul>
+          </div>
+          {% endif %}
+
+        </nav>
+
+        {# Help Footer #}
+        <div class="oh-settings-sidebar__footer">
+          <div class="oh-settings-help">
+            <ion-icon name="help-circle-outline" class="oh-settings-help__icon"></ion-icon>
+            <div class="oh-settings-help__content">
+              <p class="oh-settings-help__title">{% trans "Need Help?" %}</p>
+              <a href="#" class="oh-settings-help__link">{% trans "View Documentation" %}</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    {# ---- CONTENT AREA ---- #}
+    <main class="oh-settings-content">
+      <div class="oh-settings-content__inner">
+        {% block settings %}
+        {# Settings content goes here #}
+        {% endblock %}
+      </div>
+    </main>
+
+  </div>
+
+  {# ============ STICKY SAVE BAR ============ #}
+  <div class="oh-settings-save-bar oh-settings-save-bar--hidden" id="settingsSaveBar">
+    <div class="oh-settings-save-bar__container">
+      <div class="oh-settings-save-bar__content">
+        <span class="oh-settings-save-bar__message">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          {% trans "You have unsaved changes" %}
+        </span>
+      </div>
+      <div class="oh-settings-save-bar__actions">
+        <button type="button" class="oh-btn oh-btn--text" id="discardChangesBtn">
+          {% trans "Discard" %}
+        </button>
+        <button type="button" class="oh-btn oh-btn--primary" id="saveChangesBtn">
+          <ion-icon name="checkmark-outline"></ion-icon>
+          {% trans "Save Changes" %}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# ============ STYLES ============ #}
+<link rel="stylesheet" href="{% static 'css/settings_v2.css' %}">
+
+{# ============ SCRIPTS ============ #}
+<script src="{% static 'js/settings_v2.js' %}"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize settings page
+    const settingsPage = new SettingsPageManager({
+      sidebarSelector: '.oh-settings-sidebar',
+      contentSelector: '.oh-settings-content',
+      saveBarSelector: '#settingsSaveBar',
+      formSelector: 'form',
+      searchSelector: '#settingsSearch'
+    });
+  });
+</script>
+
+{% endblock %}
