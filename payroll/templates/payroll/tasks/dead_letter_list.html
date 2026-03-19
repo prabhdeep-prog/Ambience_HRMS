@@ -1,0 +1,66 @@
+{% extends "index.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Dead-Letter Tasks" %}{% endblock %}
+
+{% block content %}
+<div class="oh-wrapper">
+  <div class="oh-card">
+    <div class="oh-card__header" style="display:flex;justify-content:space-between;align-items:center;">
+      <h3 class="oh-card__title">{% trans "Permanently Failed Tasks (Dead-Letter Queue)" %}</h3>
+      <span class="oh-badge oh-badge--danger">{{ failed_tasks.count }} {% trans "task(s) need attention" %}</span>
+    </div>
+
+    {% if not failed_tasks %}
+      <div class="oh-card__body" style="text-align:center;padding:2rem;">
+        <ion-icon name="checkmark-circle-outline" style="font-size:3rem;color:var(--oh-color-success);"></ion-icon>
+        <p style="margin-top:.5rem;color:var(--oh-color-text-muted);">{% trans "No dead-letter tasks. All systems healthy." %}</p>
+      </div>
+    {% else %}
+      <div class="oh-card__body oh-card__body--no-padding">
+        <table class="oh-sticky-table">
+          <thead>
+            <tr class="oh-sticky-table__header">
+              <th class="oh-sticky-table__th">{% trans "Task" %}</th>
+              <th class="oh-sticky-table__th">{% trans "Description" %}</th>
+              <th class="oh-sticky-table__th">{% trans "Initiated By" %}</th>
+              <th class="oh-sticky-table__th">{% trans "Error" %}</th>
+              <th class="oh-sticky-table__th">{% trans "Failed At" %}</th>
+              <th class="oh-sticky-table__th oh-sticky-table__right">{% trans "Actions" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for task in failed_tasks %}
+            <tr class="oh-sticky-table__row">
+              <td class="oh-sticky-table__td">
+                <span class="oh-badge oh-badge--danger">{{ task.task_name|truncatechars:40 }}</span>
+              </td>
+              <td class="oh-sticky-table__td">{{ task.description|default:"—" }}</td>
+              <td class="oh-sticky-table__td">
+                {{ task.initiated_by.get_full_name|default:task.initiated_by.username|default:"—" }}
+              </td>
+              <td class="oh-sticky-table__td">
+                <span title="{{ task.error_message }}" style="cursor:help;">
+                  {{ task.error_message|truncatechars:60|default:"Unknown error" }}
+                </span>
+              </td>
+              <td class="oh-sticky-table__td">{{ task.updated_at|date:"d M Y H:i" }}</td>
+              <td class="oh-sticky-table__td oh-sticky-table__right">
+                <form method="post" action="{% url 'requeue-dead-letter' task.pk %}"
+                      style="display:inline;"
+                      onsubmit="return confirm('Re-queue this task?');">
+                  {% csrf_token %}
+                  <button type="submit" class="oh-btn oh-btn--warning oh-btn--sm">
+                    <ion-icon name="refresh-outline"></ion-icon> {% trans "Re-queue" %}
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

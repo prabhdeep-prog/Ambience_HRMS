@@ -9,25 +9,30 @@ from recruitment.models import (
 )
 
 
+DEFAULT_STAGES = [
+    {"stage": "Applied", "stage_type": "applied", "sequence": 0},
+    {"stage": "Screening", "stage_type": "initial", "sequence": 1},
+    {"stage": "Interview", "stage_type": "interview", "sequence": 2},
+    {"stage": "Offer", "stage_type": "test", "sequence": 3},
+    {"stage": "Hired", "stage_type": "hired", "sequence": 4},
+    {"stage": "Rejected", "stage_type": "cancelled", "sequence": 5},
+]
+
+
 @receiver(post_save, sender=Recruitment)
 def create_initial_stage(sender, instance, created, **kwargs):
     """
-    This is post save method, used to create initial stage for the recruitment
+    Post-save signal: automatically creates the default pipeline stages
+    whenever a new Recruitment record is created.
     """
     if created:
-        applied_stage = Stage()
-        applied_stage.sequence = 0
-        applied_stage.recruitment_id = instance
-        applied_stage.stage = "Applied"
-        applied_stage.stage_type = "applied"
-        applied_stage.save()
-
-        initial_stage = Stage()
-        initial_stage.sequence = 1
-        initial_stage.recruitment_id = instance
-        initial_stage.stage = "Initial"
-        initial_stage.stage_type = "initial"
-        initial_stage.save()
+        for stage_data in DEFAULT_STAGES:
+            Stage.objects.create(
+                recruitment_id=instance,
+                stage=stage_data["stage"],
+                stage_type=stage_data["stage_type"],
+                sequence=stage_data["sequence"],
+            )
 
 
 @receiver(m2m_changed, sender=CandidateDocumentRequest.candidate_id.through)

@@ -1,0 +1,66 @@
+{
+  "family": "horilla-web",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/HorillaECSTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/HorillaECSTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "web",
+      "image": "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/horilla-hrms:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "command": ["/app/entrypoint.sh"],
+      "environment": [
+        { "name": "DEBUG",                   "value": "False" },
+        { "name": "DJANGO_SETTINGS_MODULE",  "value": "horilla.settings" },
+        { "name": "PORT",                    "value": "8000" },
+        { "name": "ALLOWED_HOSTS",           "value": "yourdomain.com,*.amazonaws.com" },
+        { "name": "AWS_STORAGE_BUCKET_NAME", "value": "horilla-hrms-media-ACCOUNT_ID" },
+        { "name": "AWS_S3_REGION_NAME",      "value": "us-east-1" },
+        { "name": "USE_S3",                  "value": "True" },
+        { "name": "CELERY_BROKER_URL",       "value": "redis://REDIS_ENDPOINT:6379/0" },
+        { "name": "CACHE_REDIS_URL",         "value": "redis://REDIS_ENDPOINT:6379/1" },
+        { "name": "GUNICORN_WORKERS",        "value": "3" },
+        { "name": "GUNICORN_THREADS",        "value": "4" }
+      ],
+      "secrets": [
+        { "name": "SECRET_KEY",             "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:horilla/production:SECRET_KEY::" },
+        { "name": "DATABASE_URL",           "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:horilla/production:DATABASE_URL::" },
+        { "name": "ADMIN_PASSWORD",         "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:horilla/production:ADMIN_PASSWORD::" },
+        { "name": "AWS_ACCESS_KEY_ID",      "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:horilla/production:AWS_ACCESS_KEY_ID::" },
+        { "name": "AWS_SECRET_ACCESS_KEY",  "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:horilla/production:AWS_SECRET_ACCESS_KEY::" },
+        { "name": "EMAIL_HOST_PASSWORD",    "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:horilla/production:EMAIL_HOST_PASSWORD::" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/health/ || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":         "/ecs/horilla/web",
+          "awslogs-region":        "us-east-1",
+          "awslogs-stream-prefix": "web"
+        }
+      },
+      "ulimits": [
+        {
+          "name": "nofile",
+          "softLimit": 65536,
+          "hardLimit": 65536
+        }
+      ]
+    }
+  ]
+}

@@ -15,7 +15,7 @@ def default_currency(request):
     """
     if models.PayrollSettings.objects.first() is None:
         settings = models.PayrollSettings()
-        settings.currency_symbol = "$"
+        settings.currency_symbol = "₹"
         settings.save()
     symbol = models.PayrollSettings.objects.first().currency_symbol
     position = models.PayrollSettings.objects.first().position

@@ -10,6 +10,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from django.contrib import messages
+from django.contrib.auth.models import User
 from django.core import serializers
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -124,6 +125,15 @@ def candidate_survey(request):
     candidate_dict[0]["fields"]["recruitment_id"] = recruitment
     candidate_dict[0]["fields"]["job_position_id"] = job
     candidate_dict[0]["fields"]["stage_id"] = Stage.objects.get(id=stage_id)
+
+    # serializers.serialize() stores FK fields as integer PKs; resolve
+    # created_by / modified_by back to User instances (both are nullable).
+    for user_field in ("created_by", "modified_by"):
+        pk = candidate_dict[0]["fields"].get(user_field)
+        candidate_dict[0]["fields"][user_field] = (
+            User.objects.filter(pk=pk).first() if pk else None
+        )
+
     candidate = Candidate(**candidate_dict[0]["fields"])
     form = SurveyForm(recruitment=recruitment).form
     if request.method == "POST":

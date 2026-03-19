@@ -1,0 +1,216 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% block content %}
+<div class="oh-wrapper">
+
+  <!-- Top bar -->
+  <section class="oh-main__topbar">
+    <div class="oh-main__titlebar oh-main__titlebar--left">
+      <div class="oh-main__titlebar-title fw-bold mb-0 text-dark">{% trans "Post a Job" %}</div>
+    </div>
+    <div class="oh-main__titlebar oh-main__titlebar--right">
+      <a href="{% url 'recruitment-view' %}" class="oh-btn oh-btn--light ml-2">
+        <ion-icon name="arrow-back-outline" class="mr-1"></ion-icon>{% trans "Back to Jobs" %}
+      </a>
+      {% if perms.recruitment.view_candidate %}
+      <a href="{% url 'open-recruitments' %}" class="oh-btn oh-btn--light ml-2" target="_blank">
+        <ion-icon name="globe-outline" class="mr-1"></ion-icon>{% trans "Open Jobs Portal" %}
+      </a>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- Messages -->
+  {% if messages %}
+  <div class="mt-3">
+    {% for message in messages %}
+    <div class="oh-alert oh-alert--{{ message.tags }} d-flex align-items-center" role="alert">
+      <ion-icon name="{% if message.tags == 'success' %}checkmark-circle-outline{% else %}alert-circle-outline{% endif %}" class="me-2 fs-5"></ion-icon>
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Card -->
+  <div class="row justify-content-center mt-4">
+    <div class="col-lg-8 col-xl-7">
+      <div class="oh-card oh-card--shadowed p-0 overflow-hidden">
+
+        <!-- Card header -->
+        <div class="oh-card__header d-flex align-items-center gap-3 px-4 py-3"
+             style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+          <div class="d-flex align-items-center justify-content-center rounded-circle"
+               style="width:44px;height:44px;background:rgba(255,255,255,.15);">
+            <ion-icon name="briefcase-outline" style="font-size:22px;color:#fff;"></ion-icon>
+          </div>
+          <div>
+            <h5 class="mb-0 fw-bold text-white">{% trans "New Job Opening" %}</h5>
+            <small class="text-white" style="opacity:.8;">
+              {% trans "Fill in the details below. The job will be published immediately." %}
+            </small>
+          </div>
+        </div>
+
+        <!-- What happens after posting (info strip) -->
+        <div class="d-flex flex-wrap gap-3 px-4 py-3"
+             style="background:#f8f7ff;border-bottom:1px solid #e5e7eb;">
+          {% for label, icon in post_job_steps %}
+          <span class="d-flex align-items-center gap-1 small text-muted">
+            <ion-icon name="{{ icon }}" style="color:#4f46e5;font-size:16px;"></ion-icon>
+            {{ label }}
+          </span>
+          {% empty %}
+          <span class="d-flex align-items-center gap-2 small text-muted">
+            <ion-icon name="checkmark-circle-outline" style="color:#4f46e5;"></ion-icon>{% trans "Job listed on Open Jobs portal" %}
+          </span>
+          <span class="d-flex align-items-center gap-2 small text-muted">
+            <ion-icon name="git-branch-outline" style="color:#4f46e5;"></ion-icon>{% trans "6-stage pipeline created automatically" %}
+          </span>
+          <span class="d-flex align-items-center gap-2 small text-muted">
+            <ion-icon name="people-outline" style="color:#4f46e5;"></ion-icon>{% trans "Candidates can apply immediately" %}
+          </span>
+          {% endfor %}
+        </div>
+
+        <!-- Form body -->
+        <div class="px-4 py-4">
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            <!-- Non-field errors -->
+            {% if form.non_field_errors %}
+            <div class="oh-alert oh-alert--danger mb-3">
+              {% for err in form.non_field_errors %}
+              <div>{{ err }}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Job Title -->
+            <div class="mb-3">
+              <label class="oh-label oh-label--required" for="{{ form.title.id_for_label }}">
+                {% trans "Job Title" %}
+              </label>
+              {{ form.title }}
+              {% if form.title.errors %}
+              <div class="oh-input__error">{{ form.title.errors.0 }}</div>
+              {% endif %}
+              <small class="text-muted">{% trans "E.g. Senior Backend Engineer, Product Designer" %}</small>
+            </div>
+
+            <!-- Job Position(s) -->
+            <div class="mb-3">
+              <label class="oh-label oh-label--required" for="{{ form.open_positions.id_for_label }}">
+                {% trans "Job Position(s)" %}
+              </label>
+              {{ form.open_positions }}
+              {% if form.open_positions.errors %}
+              <div class="oh-input__error">{{ form.open_positions.errors.0 }}</div>
+              {% endif %}
+              <small class="text-muted">{% trans "Select from existing job positions. Create new ones under Base Settings if needed." %}</small>
+            </div>
+
+            <!-- Vacancy + Date row -->
+            <div class="row g-3 mb-3">
+              <div class="col-sm-4">
+                <label class="oh-label oh-label--required" for="{{ form.vacancy.id_for_label }}">
+                  {% trans "Vacancies" %}
+                </label>
+                {{ form.vacancy }}
+                {% if form.vacancy.errors %}
+                <div class="oh-input__error">{{ form.vacancy.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="oh-label oh-label--required" for="{{ form.start_date.id_for_label }}">
+                  {% trans "Start Date" %}
+                </label>
+                {{ form.start_date }}
+                {% if form.start_date.errors %}
+                <div class="oh-input__error">{{ form.start_date.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div class="col-sm-4">
+                <label class="oh-label" for="{{ form.end_date.id_for_label }}">
+                  {% trans "End Date" %} <span class="text-muted">({% trans "optional" %})</span>
+                </label>
+                {{ form.end_date }}
+                {% if form.end_date.errors %}
+                <div class="oh-input__error">{{ form.end_date.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Recruitment Managers -->
+            <div class="mb-3">
+              <label class="oh-label" for="{{ form.recruitment_managers.id_for_label }}">
+                {% trans "Recruitment Manager(s)" %} <span class="text-muted">({% trans "optional" %})</span>
+              </label>
+              {{ form.recruitment_managers }}
+              {% if form.recruitment_managers.errors %}
+              <div class="oh-input__error">{{ form.recruitment_managers.errors.0 }}</div>
+              {% endif %}
+              <small class="text-muted">{% trans "Managers will receive a notification and gain access to the pipeline." %}</small>
+            </div>
+
+            <!-- Description -->
+            <div class="mb-4">
+              <label class="oh-label" for="{{ form.description.id_for_label }}">
+                {% trans "Job Description" %}
+              </label>
+              {{ form.description }}
+              {% if form.description.errors %}
+              <div class="oh-input__error">{{ form.description.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Pipeline preview -->
+            <div class="mb-4 p-3 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <ion-icon name="git-branch-outline" style="color:#16a34a;font-size:18px;"></ion-icon>
+                <span class="fw-semibold small" style="color:#15803d;">{% trans "Auto-generated Pipeline Stages" %}</span>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                {% for stage in pipeline_stages %}
+                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:12px;padding:5px 10px;border-radius:20px;">
+                  {{ forloop.counter }}. {{ stage }}
+                </span>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="d-flex gap-3">
+              <button type="submit" class="oh-btn oh-btn--secondary">
+                <ion-icon name="rocket-outline" class="mr-1"></ion-icon>
+                {% trans "Publish Job" %}
+              </button>
+              <a href="{% url 'recruitment-view' %}" class="oh-btn oh-btn--light">
+                {% trans "Cancel" %}
+              </a>
+            </div>
+
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Initialize Summernote if the description textarea uses it
+  document.addEventListener("DOMContentLoaded", function () {
+    const descEl = document.querySelector("[data-summernote]");
+    if (descEl && typeof $(descEl).summernote === "function") {
+      $(descEl).summernote({ height: 180, toolbar: [
+        ["style", ["bold", "italic", "underline"]],
+        ["para", ["ul", "ol"]],
+        ["insert", ["link"]],
+        ["view", ["codeview"]],
+      ]});
+    }
+  });
+</script>
+{% endblock %}

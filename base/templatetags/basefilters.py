@@ -64,6 +64,33 @@ def is_leave_approval_manager(user):
     return manager
 
 
+@register.filter(name="can_approve_leave")
+def can_approve_leave(leave_request, user):
+    """
+    Usage: {{ leave_request|can_approve_leave:request.user }}
+
+    Returns True if the user is authorized to approve/reject this specific
+    leave request — i.e. they are:
+      1. The direct reporting manager of the leave requester, OR
+      2. Have the global leave.change_leaverequest permission (Admin/HR), OR
+      3. Are a configured MultipleApprovalManager.
+    """
+    if user.has_perm("leave.change_leaverequest"):
+        return True
+    employee = Employee.objects.filter(employee_user_id=user).first()
+    if not employee:
+        return False
+    # Check if user is the direct reporting manager for THIS specific employee
+    is_direct_manager = EmployeeWorkInformation.objects.filter(
+        employee_id=leave_request.employee_id,
+        reporting_manager_id=employee,
+    ).exists()
+    if is_direct_manager:
+        return True
+    # Check multiple-approval workflow managers
+    return MultipleApprovalManagers.objects.filter(employee_id=employee.id).exists()
+
+
 @register.filter(name="check_manager")
 def check_manager(user, instance):
     try:

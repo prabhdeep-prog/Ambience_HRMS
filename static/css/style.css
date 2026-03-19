@@ -770,3 +770,115 @@ form label {
 .swal2-styled.swal2-cancel{
     background-color : rgb(221, 51, 51);
 }
+
+/* ===================================================
+ * Sidebar — active submenu link highlight
+ * =================================================== */
+
+/* Position anchor so ::before is relative to it */
+.oh-sidebar__submenu-link {
+    display: block;
+    position: relative;
+    transition: color 0.18s ease, padding-left 0.18s ease;
+}
+
+/* Active state: bright white, bold, left accent bar */
+.oh-sidebar__submenu-link--active {
+    color: #ffffff !important;
+    font-weight: 600;
+    padding-left: 8px;
+}
+
+/* Left accent bar */
+.oh-sidebar__submenu-link--active::before {
+    content: '';
+    position: absolute;
+    left: -15px;   /* aligns to the left edge of the <li> (padding-left: 15px) */
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: orangered;
+    border-radius: 0 3px 3px 0;
+}
+
+/* Subtle hover improvement for non-active links */
+.oh-sidebar__submenu-link:not(.oh-sidebar__submenu-link--active):hover {
+    color: #ffffff !important;
+    padding-left: 4px;
+}
+
+/* ===================================================
+ * Sidebar — responsive (mobile)
+ * =================================================== */
+@media (max-width: 768px) {
+    .oh-sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 1050;
+        max-width: 240px;
+    }
+
+    .oh-sidebar.oh-sidebar--mobile-open {
+        transform: translateX(0);
+    }
+
+    /* Dark overlay behind sidebar on mobile */
+    #oh-sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 1049;
+        cursor: pointer;
+    }
+
+    #oh-sidebar-backdrop.show {
+        display: block;
+    }
+}
+
+/* === Sidebar: parent menu item highlight when a child is active === */
+
+/* Persistent left accent bar on the parent section */
+.oh-sidebar__menu-link--has-active {
+    background-color: hsl(0, 0%, 20%) !important;
+    border-left: 3px solid orangered;
+    padding-left: calc(0.85rem - 3px) !important; /* compensate for border width */
+}
+
+/* Keep it highlighted even when the submenu is closed */
+.oh-sidebar__menu-link--has-active,
+.oh-sidebar__menu-link--has-active:hover {
+    opacity: 1 !important;
+    color: #ffffff !important;
+}
+
+/* === Star rating: keep all 5 stars on one row === */
+.oh-rate {
+    display: inline-flex !important;
+    flex-direction: row-reverse !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    width: auto !important;
+    height: auto !important;
+    gap: 0;
+}
+
+/* Strip float so flex controls layout.
+   Keep overflow:hidden — labels in rating_input.html contain text like
+   "5 Stars" that must stay clipped (only the ::before star shows). */
+.oh-rate > label,
+.oh-rate:not(:checked) > label {
+    float: none !important;
+    display: inline-block !important;
+    flex: 0 0 1.3em !important;
+    width: 1.3em !important;
+    overflow: hidden !important;
+    white-space: nowrap;
+}
+
+/* Give the pipeline table rating column enough room for 5 stars */
+.oh-sticky-table__td:has(.oh-rate) {
+    min-width: 9em;
+    overflow: visible;
+}

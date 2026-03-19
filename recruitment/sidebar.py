@@ -24,14 +24,14 @@ SUBMENUS = [
         "redirect": reverse("recruitment-dashboard"),
     },
     {
-        "menu": _("Recruitment Pipeline"),
-        "redirect": reverse("pipeline"),
-        "accessibility": "recruitment.sidebar.pipeline_accessibility",
+        "menu": _("Post Job"),
+        "redirect": reverse("post-job"),
+        "accessibility": "recruitment.sidebar.post_job_accessibility",
     },
     {
-        "menu": _("Recruitment Survey"),
-        "redirect": reverse("recruitment-survey-question-template-view"),
-        "accessibility": "recruitment.sidebar.survey_accessibility",
+        "menu": _("Jobs"),
+        "redirect": reverse("recruitment-view"),
+        "accessibility": "recruitment.sidebar.recruitment_accessibility",
     },
     {
         "menu": _("Candidates"),
@@ -39,19 +39,24 @@ SUBMENUS = [
         "accessibility": "recruitment.sidebar.candidates_accessibility",
     },
     {
-        "menu": _("Interview"),
-        "redirect": reverse("interview-view"),
-        "accessibility": "recruitment.sidebar.interview_accessibility",
-    },
-    {
-        "menu": _("Recruitment"),
-        "redirect": reverse("recruitment-view"),
-        "accessibility": "recruitment.sidebar.recruitment_accessibility",
+        "menu": _("Pipeline"),
+        "redirect": reverse("pipeline"),
+        "accessibility": "recruitment.sidebar.pipeline_accessibility",
     },
     {
         "menu": _("Open Jobs"),
         "redirect": reverse("open-recruitments"),
         "accessibility": "recruitment.sidebar.recruitment_accessibility",
+    },
+    {
+        "menu": _("Interview"),
+        "redirect": reverse("interview-view"),
+        "accessibility": "recruitment.sidebar.interview_accessibility",
+    },
+    {
+        "menu": _("Recruitment Survey"),
+        "redirect": reverse("recruitment-survey-question-template-view"),
+        "accessibility": "recruitment.sidebar.survey_accessibility",
     },
     {
         "menu": _("Stages"),
@@ -64,6 +69,12 @@ SUBMENUS = [
         "accessibility": "recruitment.sidebar.skill_zone_accessibility",
     },
 ]
+
+
+def post_job_accessibility(
+    request, _submenu: dict = {}, user_perms: PermWrapper = [], *args, **kwargs
+) -> bool:
+    return request.user.has_perm("recruitment.add_recruitment")
 
 
 def menu_accessibilty(

@@ -1,0 +1,294 @@
+{% extends 'settings_v2_refactored.html' %}
+{% load i18n static %}
+
+{% block settings %}
+<div class="oh-settings-form">
+
+  {# ============ FORM HEADER ============ #}
+  <div class="oh-settings-form__header">
+    <h2 class="oh-settings-form__title">
+      <ion-icon name="settings-outline" style="font-size: 28px; margin-right: 8px;"></ion-icon>
+      {% trans "Company Settings" %}
+    </h2>
+    <p class="oh-settings-form__description">
+      {% trans "Configure basic company information and general preferences" %}
+    </p>
+  </div>
+
+  {# ============ SETTINGS FORM ============ #}
+  <form method="post" class="oh-settings-form" id="companySettingsForm">
+    {% csrf_token %}
+
+    {# ---- SECTION 1: BASIC INFORMATION ---- #}
+    <div class="oh-form-group">
+      <h3 class="oh-form-group__title">
+        <ion-icon name="briefcase-outline" style="font-size: 18px;"></ion-icon>
+        {% trans "Basic Information" %}
+      </h3>
+      <p class="oh-form-group__description">
+        {% trans "Update your organization's basic details" %}
+      </p>
+
+      <div class="oh-form-row oh-form-row--two">
+
+        {# Company Name #}
+        <div class="oh-form-field {% if form.company_name.errors %}oh-has-error{% endif %}">
+          <label for="{{ form.company_name.id_for_label }}" class="oh-form-field__label">
+            {% trans "Company Name" %}
+            <span class="oh-form-field__label-required">*</span>
+          </label>
+          {{ form.company_name }}
+          {% if form.company_name.help_text %}
+          <p class="oh-form-field__help" id="{{ form.company_name.id_for_label }}_help">
+            {{ form.company_name.help_text|safe }}
+          </p>
+          {% endif %}
+          {% if form.company_name.errors %}
+          <div class="oh-form-field__error">{{ form.company_name.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+
+        {# Company Email #}
+        <div class="oh-form-field {% if form.company_email.errors %}oh-has-error{% endif %}">
+          <label for="{{ form.company_email.id_for_label }}" class="oh-form-field__label">
+            {% trans "Contact Email" %}
+            <span class="oh-form-field__label-required">*</span>
+          </label>
+          {{ form.company_email }}
+          {% if form.company_email.help_text %}
+          <p class="oh-form-field__help" id="{{ form.company_email.id_for_label }}_help">
+            {{ form.company_email.help_text|safe }}
+          </p>
+          {% endif %}
+          {% if form.company_email.errors %}
+          <div class="oh-form-field__error">{{ form.company_email.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="oh-form-row oh-form-row--two">
+
+        {# Company Phone #}
+        <div class="oh-form-field {% if form.company_phone.errors %}oh-has-error{% endif %}">
+          <label for="{{ form.company_phone.id_for_label }}" class="oh-form-field__label">
+            {% trans "Phone Number" %}
+          </label>
+          {{ form.company_phone }}
+          {% if form.company_phone.help_text %}
+          <p class="oh-form-field__help" id="{{ form.company_phone.id_for_label }}_help">
+            {{ form.company_phone.help_text|safe }}
+          </p>
+          {% endif %}
+          {% if form.company_phone.errors %}
+          <div class="oh-form-field__error">{{ form.company_phone.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+
+        {# Company Website #}
+        <div class="oh-form-field {% if form.company_website.errors %}oh-has-error{% endif %}">
+          <label for="{{ form.company_website.id_for_label }}" class="oh-form-field__label">
+            {% trans "Website" %}
+          </label>
+          {{ form.company_website }}
+          {% if form.company_website.help_text %}
+          <p class="oh-form-field__help" id="{{ form.company_website.id_for_label }}_help">
+            {{ form.company_website.help_text|safe }}
+          </p>
+          {% endif %}
+          {% if form.company_website.errors %}
+          <div class="oh-form-field__error">{{ form.company_website.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ---- SECTION 2: REGIONAL SETTINGS ---- #}
+    <div class="oh-form-group">
+      <h3 class="oh-form-group__title">
+        <ion-icon name="globe-outline" style="font-size: 18px;"></ion-icon>
+        {% trans "Regional Settings" %}
+      </h3>
+      <p class="oh-form-group__description">
+        {% trans "Configure language, timezone, and currency preferences" %}
+      </p>
+
+      <div class="oh-form-row oh-form-row--two">
+
+        {# Currency #}
+        <div class="oh-form-field {% if form.currency.errors %}oh-has-error{% endif %}">
+          <label for="{{ form.currency.id_for_label }}" class="oh-form-field__label">
+            {% trans "Default Currency" %}
+            <span class="oh-form-field__label-required">*</span>
+          </label>
+          {{ form.currency }}
+          {% if form.currency.help_text %}
+          <p class="oh-form-field__help" id="{{ form.currency.id_for_label }}_help">
+            {{ form.currency.help_text|safe }}
+          </p>
+          {% endif %}
+          {% if form.currency.errors %}
+          <div class="oh-form-field__error">{{ form.currency.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+
+        {# Timezone #}
+        <div class="oh-form-field {% if form.timezone.errors %}oh-has-error{% endif %}">
+          <label for="{{ form.timezone.id_for_label }}" class="oh-form-field__label">
+            {% trans "Timezone" %}
+            <span class="oh-form-field__label-required">*</span>
+          </label>
+          {{ form.timezone }}
+          {% if form.timezone.help_text %}
+          <p class="oh-form-field__help" id="{{ form.timezone.id_for_label }}_help">
+            {{ form.timezone.help_text|safe }}
+          </p>
+          {% endif %}
+          {% if form.timezone.errors %}
+          <div class="oh-form-field__error">{{ form.timezone.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="oh-form-row oh-form-row--two">
+
+        {# Language #}
+        <div class="oh-form-field {% if form.language.errors %}oh-has-error{% endif %}">
+          <label for="{{ form.language.id_for_label }}" class="oh-form-field__label">
+            {% trans "Default Language" %}
+            <span class="oh-form-field__label-required">*</span>
+          </label>
+          {{ form.language }}
+          {% if form.language.help_text %}
+          <p class="oh-form-field__help" id="{{ form.language.id_for_label }}_help">
+            {{ form.language.help_text|safe }}
+          </p>
+          {% endif %}
+          {% if form.language.errors %}
+          <div class="oh-form-field__error">{{ form.language.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+
+        {# Max Employees #}
+        <div class="oh-form-field {% if form.max_employees.errors %}oh-has-error{% endif %}">
+          <label for="{{ form.max_employees.id_for_label }}" class="oh-form-field__label">
+            {% trans "Maximum Employees" %}
+            <span class="oh-form-field__label-required">*</span>
+          </label>
+          {{ form.max_employees }}
+          {% if form.max_employees.help_text %}
+          <p class="oh-form-field__help" id="{{ form.max_employees.id_for_label }}_help">
+            {{ form.max_employees.help_text|safe }}
+          </p>
+          {% endif %}
+          {% if form.max_employees.errors %}
+          <div class="oh-form-field__error">{{ form.max_employees.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ---- SECTION 3: SECURITY OPTIONS ---- #}
+    <div class="oh-form-group">
+      <h3 class="oh-form-group__title">
+        <ion-icon name="shield-checkmark-outline" style="font-size: 18px;"></ion-icon>
+        {% trans "Security & Compliance" %}
+      </h3>
+      <p class="oh-form-group__description">
+        {% trans "Enable security features to protect your organization" %}
+      </p>
+
+      <div class="oh-form-row oh-form-row--full">
+
+        {# Audit Trail #}
+        <div class="oh-form-field" style="display: flex; align-items: center; gap: 12px;">
+          {{ form.enable_audit_trail }}
+          <label for="{{ form.enable_audit_trail.id_for_label }}" class="oh-form-field__label" style="margin: 0;">
+            {% trans "Enable Audit Trail" %}
+          </label>
+        </div>
+        {% if form.enable_audit_trail.help_text %}
+        <p class="oh-form-field__help" id="{{ form.enable_audit_trail.id_for_label }}_help">
+          {{ form.enable_audit_trail.help_text|safe }}
+        </p>
+        {% endif %}
+
+        {# Two Factor Authentication #}
+        <div class="oh-form-field" style="display: flex; align-items: center; gap: 12px; margin-top: 12px;">
+          {{ form.enable_two_factor_auth }}
+          <label for="{{ form.enable_two_factor_auth.id_for_label }}" class="oh-form-field__label" style="margin: 0;">
+            {% trans "Require Two-Factor Authentication" %}
+          </label>
+        </div>
+        {% if form.enable_two_factor_auth.help_text %}
+        <p class="oh-form-field__help" id="{{ form.enable_two_factor_auth.id_for_label }}_help">
+          {{ form.enable_two_factor_auth.help_text|safe }}
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ---- FORM ACTIONS ---- #}
+    <div class="oh-form-actions">
+      <button type="button" class="oh-btn oh-btn--secondary" id="resetFormBtn">
+        <ion-icon name="refresh-outline"></ion-icon>
+        {% trans "Reset" %}
+      </button>
+      <button type="submit" class="oh-btn oh-btn--primary">
+        <ion-icon name="checkmark-outline"></ion-icon>
+        {% trans "Save Changes" %}
+      </button>
+    </div>
+  </form>
+
+  {# ============ DANGER ZONE ============ #}
+  <div class="oh-danger-zone">
+    <div class="oh-danger-zone__header">
+      <ion-icon name="warning-outline" class="oh-danger-zone__icon"></ion-icon>
+      <h3 class="oh-danger-zone__title">{% trans "Danger Zone" %}</h3>
+    </div>
+
+    <p class="oh-danger-zone__description">
+      {% trans "The actions below are irreversible and will permanently delete company data. Please proceed with caution." %}
+    </p>
+
+    <div class="oh-danger-zone__action">
+      <button type="button" class="oh-btn oh-btn--danger oh-danger-zone__button" id="deleteCompanyBtn">
+        <ion-icon name="trash-outline"></ion-icon>
+        {% trans "Delete All Company Data" %}
+      </button>
+    </div>
+  </div>
+
+</div>
+
+{# ============ RESET BUTTON SCRIPT ============ #}
+<script>
+  document.getElementById('resetFormBtn').addEventListener('click', function() {
+    document.getElementById('companySettingsForm').reset();
+    window.settingsManager?.checkForChanges(document.getElementById('companySettingsForm'));
+  });
+
+  document.getElementById('deleteCompanyBtn').addEventListener('click', function() {
+    const input = prompt('{% trans "Type DELETE to confirm this irreversible action" %}');
+    if (input === 'DELETE') {
+      if (confirm('{% trans "Are you absolutely certain? This will permanently delete all company data and cannot be undone." %}')) {
+        // Call delete API
+        fetch('{% url "delete-company-data" %}', {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+          },
+        }).then(response => {
+          if (response.ok) {
+            window.settingsManager?.showNotification('{% trans "Company data deleted successfully" %}', 'success');
+            window.location.href = '{% url "dashboard" %}';
+          } else {
+            window.settingsManager?.showNotification('{% trans "Error deleting company data" %}', 'error');
+          }
+        });
+      }
+    }
+  });
+</script>
+
+{% endblock %}

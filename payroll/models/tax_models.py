@@ -27,7 +27,7 @@ class PayrollSettings(HorillaModel):
         ("postfix", _("Postfix")),
     ]
 
-    currency_symbol = models.CharField(null=True, default="$", max_length=5)
+    currency_symbol = models.CharField(null=True, default="₹", max_length=5)
     position = models.CharField(
         max_length=15, null=True, choices=choices, default="postfix"
     )
