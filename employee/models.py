@@ -116,6 +116,21 @@ class Employee(models.Model):
         related_company_field="employee_work_info__company_id"
     )
 
+    @classmethod
+    def for_user(cls, user):
+        """
+        Return the Employee instance for the given User, or None.
+
+        Centralises the repeated pattern:
+            Employee.objects.filter(employee_user_id=user).first()
+
+        Usage:
+            employee = Employee.for_user(request.user)
+            if employee is None:
+                return redirect("employee-view")
+        """
+        return cls.objects.filter(employee_user_id=user).first()
+
     def clean_fields(self, exclude=None):
         errors = {}
 

@@ -581,6 +581,7 @@ body.dark {
   word-break: normal !important;
   padding: .55rem .75rem !important;
   vertical-align: middle !important;
+  text-align: left !important;
   position: relative !important;
   left: auto !important;
   top: auto !important;
@@ -640,12 +641,23 @@ body.dark {
   background-color: var(--hrd-slate-50);
 }
 
-/* 8. Profile avatars */
+/* 8. Profile avatars — left-align names in approval tables */
+#approvalTileContainer .oh-profile,
 #approvalTileContainer .oh-profile--md {
   gap: .4rem;
-  display: flex;
-  align-items: center;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
   overflow: hidden;
+}
+#approvalTileContainer .oh-sticky-table__sd .oh-profile,
+#approvalTileContainer .oh-sticky-table__sd .oh-profile--md,
+#approvalTileContainer .oh-sticky-table__td .oh-profile,
+#approvalTileContainer .oh-sticky-table__td .oh-profile--md {
+  justify-content: flex-start !important;
+  display: inline-flex !important;
+  width: 100%;
+  text-align: left !important;
 }
 #approvalTileContainer .oh-profile--md .oh-profile__avatar {
   width: 28px !important;

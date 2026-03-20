@@ -6,12 +6,16 @@ from horilla.horilla_apps import INSTALLED_APPS
 """
 DB_INIT_PASSWORD: str
 
-The password used for database setup and initialization. This password is a
-48-character alphanumeric string generated using a UUID to ensure high entropy and security.
+The password used for database setup and initialization.
+Must be set explicitly in the environment — there is no default value.
+
+Generate a secure value with:
+    python -c "import secrets; print(secrets.token_hex(32))"
+
+Then add to your .env:
+    DB_INIT_PASSWORD=<generated_value>
 """
-DB_INIT_PASSWORD = settings.env(
-    "DB_INIT_PASSWORD", default="d3f6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d"
-)
+DB_INIT_PASSWORD = settings.env("DB_INIT_PASSWORD")
 
 
 HORILLA_DATE_FORMATS = {

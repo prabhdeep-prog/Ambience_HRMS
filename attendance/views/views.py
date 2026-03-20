@@ -32,6 +32,7 @@ import pandas as pd
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.core.validators import validate_ipv46_address
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import ProtectedError
 from django.forms import ValidationError
@@ -158,7 +159,9 @@ def profile_attendance_tab(request):
     """
     user = request.user
     employee = user.employee_get
-    employee_attendances = employee.employee_attendances.all()
+    employee_attendances = employee.employee_attendances.select_related(
+        "shift_id", "work_type_id", "attendance_day"
+    ).all()
     attendances_ids = json.dumps([instance.id for instance in employee_attendances])
     context = {
         "attendances": employee_attendances,
@@ -183,15 +186,17 @@ def attendance_tab(request, emp_id):
     requests = Attendance.objects.filter(
         is_validate_request=True,
         employee_id=emp_id,
-    )
+    ).select_related("employee_id", "shift_id", "work_type_id")
     attendances_ids = json.dumps([instance.id for instance in requests])
     validate_attendances = Attendance.objects.filter(
         attendance_validated=False, employee_id=emp_id
-    )
+    ).select_related("employee_id", "shift_id", "work_type_id")
     validate_attendances_ids = json.dumps(
         [instance.id for instance in validate_attendances]
     )
-    accounts = AttendanceOverTime.objects.filter(employee_id=emp_id)
+    accounts = AttendanceOverTime.objects.filter(employee_id=emp_id).select_related(
+        "employee_id"
+    )
     accounts_ids = json.dumps([instance.id for instance in accounts])
 
     context = {
@@ -561,9 +566,8 @@ def view_my_attendance(request):
     user = request.user
     try:
         employee = user.employee_get
-    except:
+    except (AttributeError, ObjectDoesNotExist):
         return redirect("/employee/employee-profile")
-    employee = user.employee_get
     employee_attendances = employee.employee_attendances.all()
     filter = AttendanceFilters()
     if employee_attendances.exists():
@@ -2690,7 +2694,7 @@ def delete_allowed_ips(request):
         allowed_ips.save()
 
         messages.success(request, "IP address removed successfully")
-    except:
+    except (AttributeError, KeyError, IndexError, TypeError):
         messages.error(request, "Invalid id")
     return redirect("allowed-ips")
 

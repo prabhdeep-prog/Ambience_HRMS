@@ -10,8 +10,8 @@ from urllib.parse import parse_qs
 
 from django.contrib import messages
 from django.db.models import ProtectedError, Q
-from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -24,6 +24,7 @@ from attendance.forms import (
     NewRequestForm,
 )
 from attendance.methods.utils import (
+    can_access_attendance,
     get_diff_dict,
     get_employee_last_name,
     paginator_qry,
@@ -317,7 +318,11 @@ def attendance_request_changes(request, attendance_id):
     """
     This method is used to store the requested changes to the instance
     """
-    attendance = Attendance.objects.get(id=attendance_id)
+    attendance = get_object_or_404(Attendance, id=attendance_id)
+    if not can_access_attendance(request, attendance):
+        return HttpResponseForbidden(
+            _("You do not have permission to modify this attendance record.")
+        )
     if request.GET.get("previous_url"):
         form = AttendanceRequestForm(initial=request.GET.dict())
     else:
@@ -417,7 +422,11 @@ def validate_attendance_request(request, attendance_id):
     args:
         attendance_id : attendance id
     """
-    attendance = Attendance.objects.get(id=attendance_id)
+    attendance = get_object_or_404(Attendance, id=attendance_id)
+    if not can_access_attendance(request, attendance):
+        return HttpResponseForbidden(
+            _("You do not have permission to view this attendance record.")
+        )
     first_dict = attendance.serialize()
     empty_data = {
         "employee_id": None,
@@ -461,7 +470,11 @@ def approve_validate_attendance_request(request, attendance_id):
     """
     This method is used to validate the attendance requests
     """
-    attendance = Attendance.objects.get(id=attendance_id)
+    attendance = get_object_or_404(Attendance, id=attendance_id)
+    if not can_access_attendance(request, attendance):
+        return HttpResponseForbidden(
+            _("You do not have permission to approve this attendance record.")
+        )
     prev_attendance_date = attendance.attendance_date
     prev_attendance_clock_in_date = attendance.attendance_clock_in_date
     prev_attendance_clock_in = attendance.attendance_clock_in
@@ -658,7 +671,11 @@ def bulk_approve_attendance_request(request):
     ids = request.POST["ids"]
     ids = json.loads(ids)
     for attendance_id in ids:
-        attendance = Attendance.objects.get(id=attendance_id)
+        attendance = get_object_or_404(Attendance, id=attendance_id)
+        if not can_access_attendance(request, attendance):
+            # Skip records the user has no right to approve rather than
+            # leaking existence of the record via a hard 403.
+            continue
         prev_attendance_date = attendance.attendance_date
         prev_attendance_clock_in_date = attendance.attendance_clock_in_date
         prev_attendance_clock_in = attendance.attendance_clock_in
@@ -826,7 +843,11 @@ def edit_validate_attendance(request, attendance_id):
     """
     This method is used to edit and update the validate request attendance
     """
-    attendance = Attendance.objects.get(id=attendance_id)
+    attendance = get_object_or_404(Attendance, id=attendance_id)
+    if not can_access_attendance(request, attendance):
+        return HttpResponseForbidden(
+            _("You do not have permission to edit this attendance record.")
+        )
     initial = attendance.serialize()
     if request.GET.get("previous_url"):
         initial = request.GET.dict()

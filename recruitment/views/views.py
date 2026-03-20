@@ -2688,29 +2688,140 @@ def update_candidate_rating(request, cand_id):
 
 def open_recruitments(request):
     """
-    This method is used to render the open recruitment page
+    Renders the modern Careers / Open Recruitments page.
+    Only shows published, active, non-closed recruitments created within the
+    last 30 days. Supports server-side search + filtering via query params.
     """
+    from django.db.models import Q
+    from datetime import timedelta
+    from django.core.paginator import Paginator
+
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+
     recruitments = Recruitment.default.filter(
-        closed=False, is_published=True, is_active=True
+        closed=False,
+        is_published=True,
+        is_active=True,
+        created_at__gte=thirty_days_ago,
+    ).select_related(
+        "company_id", "job_position_id"
+    ).prefetch_related(
+        "open_positions", "open_positions__department_id", "skills"
+    ).order_by("-created_at")
+
+    # ── Search ───────────────────────────────────────────────────────────────
+    search = request.GET.get("search", "").strip()
+    if search:
+        recruitments = recruitments.filter(
+            Q(title__icontains=search)
+            | Q(description__icontains=search)
+            | Q(open_positions__job_position__icontains=search)
+            | Q(skills__title__icontains=search)
+        ).distinct()
+
+    # ── Filters ──────────────────────────────────────────────────────────────
+    department = request.GET.get("department", "")
+    if department:
+        recruitments = recruitments.filter(
+            open_positions__department_id__department=department
+        ).distinct()
+
+    location = request.GET.get("location", "")
+    if location:
+        recruitments = recruitments.filter(location=location)
+
+    employment_type = request.GET.get("employment_type", "")
+    if employment_type:
+        recruitments = recruitments.filter(employment_type=employment_type)
+
+    experience_level = request.GET.get("experience_level", "")
+    if experience_level:
+        recruitments = recruitments.filter(experience_level=experience_level)
+
+    # ── Sorting ──────────────────────────────────────────────────────────────
+    sort = request.GET.get("sort", "newest")
+    if sort == "department":
+        recruitments = recruitments.order_by(
+            "open_positions__department_id__department", "-created_at"
+        )
+    elif sort == "location":
+        recruitments = recruitments.order_by("location", "-created_at")
+    # default: newest first (already set)
+
+    # ── Collect filter options (from the unfiltered 30-day set) ───────────
+    all_recent = Recruitment.default.filter(
+        closed=False,
+        is_published=True,
+        is_active=True,
+        created_at__gte=thirty_days_ago,
+    ).prefetch_related("open_positions__department_id")
+
+    from base.models import Department as DeptModel
+
+    departments = (
+        DeptModel.objects.filter(
+            job_position__open_positions__in=all_recent
+        )
+        .values_list("department", flat=True)
+        .distinct()
+        .order_by("department")
     )
+
+    # ── Pagination (10 per page) ─────────────────────────────────────────
+    paginator = Paginator(recruitments, 10)
+    page_number = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        "recruitments": recruitments,
+        "recruitments": page_obj,
+        "page_obj": page_obj,
+        "total_jobs": paginator.count,
+        "departments": departments,
+        "location_choices": Recruitment.LOCATION_CHOICES,
+        "employment_type_choices": Recruitment.EMPLOYMENT_TYPE_CHOICES,
+        "experience_level_choices": Recruitment.EXPERIENCE_LEVEL_CHOICES,
+        # Current filter values (to restore selected state)
+        "current_search": search,
+        "current_department": department,
+        "current_location": location,
+        "current_employment_type": employment_type,
+        "current_experience_level": experience_level,
+        "current_sort": sort,
     }
+
+    # If HTMX request, return only the jobs list partial
+    if request.headers.get("HX-Request"):
+        response = render(
+            request, "recruitment/careers_jobs_list.html", context
+        )
+        return response
+
     response = render(request, "recruitment/open_recruitments.html", context)
     response["X-Frame-Options"] = "ALLOW-FROM *"
-
     return response
 
 
-@hx_request_required
 def recruitment_details(request, id):
     """
-    This method is used to render the recruitment details page
+    Renders the full job detail page for the careers section.
+    Accessible without login.
     """
-    recruitment = Recruitment.default.get(id=id)
+    recruitment = Recruitment.default.select_related(
+        "company_id", "job_position_id"
+    ).prefetch_related(
+        "open_positions", "open_positions__department_id", "skills"
+    ).get(id=id)
+
     context = {
         "recruitment": recruitment,
     }
+
+    # Return partial if HTMX request (modal load)
+    if request.headers.get("HX-Request"):
+        return render(
+            request, "recruitment/recruitment_detail_partial.html", context
+        )
+
     return render(request, "recruitment/recruitment_details.html", context)
 
 

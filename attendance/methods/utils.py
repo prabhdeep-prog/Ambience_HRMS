@@ -15,10 +15,54 @@ from django.db.models import Q, Sum
 from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 
-from base.methods import get_pagination
+from base.methods import get_pagination, is_reportingmanager
 from base.models import WEEK_DAYS, CompanyLeaves, Holidays
 from employee.models import Employee
 from horilla.horilla_settings import HORILLA_DATE_FORMATS, HORILLA_TIME_FORMATS
+
+
+def can_access_attendance(request, attendance):
+    """
+    Return True if the requesting user is allowed to view or modify the given
+    Attendance instance.
+
+    Access is granted when ANY of the following is true:
+    1. The record belongs to the logged-in employee (own record).
+    2. The logged-in user has the 'attendance.change_attendance' or
+       'attendance.view_attendance' permission (HR / admin staff).
+    3. The logged-in user is a reporting manager AND the attendance
+       belongs to one of their direct/indirect subordinates.
+
+    Usage:
+        attendance = get_object_or_404(Attendance, id=attendance_id)
+        if not can_access_attendance(request, attendance):
+            return HttpResponseForbidden()
+    """
+    user = request.user
+
+    # 1. Own record
+    if attendance.employee_id.employee_user_id == user:
+        return True
+
+    # 2. Global permission (HR manager / admin)
+    if user.has_perm("attendance.change_attendance") or user.has_perm(
+        "attendance.view_attendance"
+    ):
+        return True
+
+    # 3. Reporting manager — check subordinate scope
+    if is_reportingmanager(request):
+        try:
+            manager_employee = user.employee_get
+            from base.methods import get_subordinate_employee_ids
+
+            subordinate_ids = get_subordinate_employee_ids(manager_employee)
+            if attendance.employee_id_id in subordinate_ids:
+                return True
+        except Exception:
+            pass
+
+    return False
 
 MONTH_MAPPING = {
     "january": 1,

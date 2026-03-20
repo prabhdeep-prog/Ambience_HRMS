@@ -1,14 +1,188 @@
 {% load i18n %}
-<h5 class="oh-job__post">{{recruitment.title}}</h5>
-<p class="oh-onboarding__content oh-job__post_description">{{recruitment.description|safe}}</p>
-<span class = "fw-bold d-block"> {% trans "Job positions :" %}</span>
-<ul class="oh-job__description-list mt-3">
-    {% for job in recruitment.open_positions.all %}
-        <li class="oh-job__description-list_item">{{job}}</li>
-    {% endfor %}
-</ul>
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ recruitment.title }} | {% trans "Careers" %} | {{white_label_company_name}}</title>
+    <meta name="description" content="{{ recruitment.description|striptags|truncatewords:30 }}" />
 
-    <a href='{% url "application-form" %}?recruitmentId={{recruitment.id}}' rel="noopener noreferrer" target="_blank" class="oh-btn  oh-apply_btn" role="button" data-toggle="oh-modal-toggle"
-    data-target="#jobDetailModal">
-    {% trans "Apply Now" %}
-</a>
+    <link rel="apple-touch-icon" sizes="180x180" href="{% if white_label_company.icon %}{{white_label_company.icon.url}}{% else %}{% static 'favicons/apple-touch-icon.png' %}{% endif %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% if white_label_company.icon %}{{white_label_company.icon.url}}{% else %}{% static 'favicons/favicon-32x32.png' %}{% endif %}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static '/build/css/style.min.css' %}" />
+
+    <style>
+        :root {
+            --cd-primary: #4F46E5;
+            --cd-primary-dark: #4338CA;
+            --cd-bg: #F9FAFB;
+            --cd-white: #FFFFFF;
+            --cd-gray-100: #F3F4F6;
+            --cd-gray-200: #E5E7EB;
+            --cd-gray-500: #6B7280;
+            --cd-gray-700: #374151;
+            --cd-gray-800: #1F2937;
+            --cd-gray-900: #111827;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--cd-bg);
+            color: var(--cd-gray-800);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        .cd-topbar {
+            background: var(--cd-white);
+            border-bottom: 1px solid var(--cd-gray-200);
+            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .cd-topbar-inner {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .cd-back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--cd-gray-500);
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .cd-back-link:hover { color: var(--cd-primary); }
+        .cd-back-link svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+        }
+        .cd-apply-top {
+            padding: 10px 24px;
+            background: var(--cd-primary);
+            color: #FFFFFF;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: background 0.2s;
+        }
+        .cd-apply-top:hover {
+            background: var(--cd-primary-dark);
+            color: #FFFFFF;
+        }
+        .cd-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 24px 80px;
+        }
+        .cd-card {
+            background: var(--cd-white);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            border: 1px solid var(--cd-gray-200);
+        }
+        .cd-footer {
+            text-align: center;
+            padding: 40px 0;
+            color: var(--cd-gray-500);
+            font-size: 0.85rem;
+        }
+
+        /* Mobile fixed apply bar */
+        @media (max-width: 768px) {
+            .cd-card { padding: 24px; border-radius: 12px; }
+            .cd-mobile-apply {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 16px 24px;
+                background: var(--cd-white);
+                border-top: 1px solid var(--cd-gray-200);
+                box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
+                z-index: 20;
+            }
+            .cd-mobile-apply a {
+                display: block;
+                text-align: center;
+                padding: 14px;
+                background: var(--cd-primary);
+                color: #FFFFFF;
+                border-radius: 10px;
+                font-weight: 600;
+                font-size: 1rem;
+            }
+            body { padding-bottom: 80px; }
+        }
+        @media (min-width: 769px) {
+            .cd-mobile-apply { display: none; }
+        }
+    </style>
+
+    <!-- JobPosting Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org/",
+        "@type": "JobPosting",
+        "title": "{{ recruitment.title|escapejs }}",
+        "description": "{{ recruitment.description|striptags|truncatewords:50|escapejs }}",
+        "datePosted": "{{ recruitment.created_at|date:'Y-m-d' }}",
+        "hiringOrganization": {
+            "@type": "Organization",
+            "name": "{% if recruitment.company_id %}{{ recruitment.company_id|escapejs }}{% else %}{{ white_label_company_name|escapejs }}{% endif %}"
+        },
+        "employmentType": "{{ recruitment.get_employment_type_display|upper|escapejs }}",
+        "jobLocationType": "{% if recruitment.location == 'remote' %}TELECOMMUTE{% endif %}"
+    }
+    </script>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <nav class="cd-topbar">
+        <div class="cd-topbar-inner">
+            <a href="{% url 'open-recruitments' %}" class="cd-back-link">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                {% trans "All Positions" %}
+            </a>
+            <a href="{% url 'application-form' %}?recruitmentId={{ recruitment.id }}" target="_blank" rel="noopener noreferrer" class="cd-apply-top">
+                {% trans "Apply Now" %}
+            </a>
+        </div>
+    </nav>
+
+    <div class="cd-container">
+        <div class="cd-card">
+            {% include "recruitment/recruitment_detail_partial.html" %}
+        </div>
+    </div>
+
+    <footer class="cd-footer">
+        &copy; {% now "Y" %} {{ white_label_company_name }}. {% trans "All rights reserved." %}
+    </footer>
+
+    <!-- Mobile fixed apply button -->
+    <div class="cd-mobile-apply">
+        <a href="{% url 'application-form' %}?recruitmentId={{ recruitment.id }}" target="_blank" rel="noopener noreferrer">
+            {% trans "Apply for this Role" %}
+        </a>
+    </div>
+</body>
+</html>

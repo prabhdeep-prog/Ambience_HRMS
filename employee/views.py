@@ -325,22 +325,43 @@ def employee_view_individual(request, obj_id, **kwargs):
     """
     This method is used to view profile of an employee.
     """
+    # Try the company-scoped manager first; fall back to entire() for
+    # cross-company admins, but always validate company membership.
     try:
         employee = Employee.objects.get(id=obj_id)
     except ObjectDoesNotExist:
         try:
             employee = Employee.objects.entire().get(id=obj_id)
-            company = getattr(
-                getattr(employee, "employee_work_info", None), "company_id", None
-            )
-            company_id = getattr(company, "pk", None)
-            if company_id != request.session["selected_company"]:
-                messages.error(
-                    request, "Employee is not working in the selected company."
-                )
-                return redirect("employee-view")
-        except Exception as e:
+        except ObjectDoesNotExist:
             return render(request, "404.html", status=404)
+
+        # Validate the employee belongs to the session-selected company
+        company = getattr(
+            getattr(employee, "employee_work_info", None), "company_id", None
+        )
+        company_id = getattr(company, "pk", None)
+        if company_id != request.session.get("selected_company"):
+            messages.error(
+                request, "Employee is not working in the selected company."
+            )
+            return redirect("employee-view")
+
+    # Object-level permission: the requesting user must either be viewing
+    # their own profile, be an HR admin, or be a reporting manager of this employee.
+    requesting_employee = Employee.objects.filter(
+        employee_user_id=request.user
+    ).first()
+    is_own_profile = requesting_employee and requesting_employee.pk == employee.pk
+    is_hr_admin = request.user.has_perm("employee.view_employee")
+    is_manager = (
+        requesting_employee
+        and employee.employee_work_info.reporting_manager_id == requesting_employee
+        if hasattr(employee, "employee_work_info")
+        else False
+    )
+    if not (is_own_profile or is_hr_admin or is_manager):
+        messages.error(request, "You do not have permission to view this profile.")
+        return redirect("employee-view")
 
     employee_leaves = (
         employee.available_leave.all() if apps.is_installed("leave") else None
@@ -795,7 +816,8 @@ def file_upload(request, id):
                     ),
                     icon="chatbox-ellipses",
                 )
-            except:
+            except Exception:
+                # Non-critical: notification failed, don't break the upload
                 pass
             return HorillaRedirect(request)
         else:
@@ -832,7 +854,7 @@ def view_file(request, id):
         try:
             with open(file_path, "rb") as file:
                 file_content = file.read()  # Decode the binary content for display
-        except:
+        except OSError:
             file_content = None
 
         context["file_content"] = file_content
@@ -1176,7 +1198,7 @@ def view_employee_bulk_update(request):
                                         "data-pp": False,
                                     }
                                 )
-                        except:
+                        except (AttributeError, KeyError):
                             continue
 
                 def __init__(self, *args, **kwargs):
@@ -1252,7 +1274,7 @@ def view_employee_bulk_update(request):
                                             if field_obj.name == "email"
                                             else _("Work Phone")
                                         )
-                        except:
+                        except (AttributeError, KeyError):
                             continue
 
                 def __init__(self, *args, **kwargs):
@@ -1308,7 +1330,7 @@ def view_employee_bulk_update(request):
                                             else _("Bank State")
                                         )
 
-                        except:
+                        except (AttributeError, KeyError):
                             continue
 
                 def __init__(self, *args, **kwargs):
