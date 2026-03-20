@@ -1480,6 +1480,7 @@ def interview_filter_view(request):
     """
     This method is used to filter Disciplinary Action.
     """
+    import datetime as _dt
 
     previous_data = request.GET.urlencode()
 
@@ -1489,6 +1490,12 @@ def interview_filter_view(request):
         interviews = InterviewSchedule.objects.filter(
             employee_id=request.user.employee_get.id
         ).order_by("-interview_date")
+
+    # Default to current month when no date filter is provided.
+    _date_keys = {"interview_date", "interview_date_from", "interview_date_till", "scheduled_from", "scheduled_till"}
+    if not _date_keys.intersection(request.GET.keys()):
+        _today = _dt.date.today()
+        interviews = interviews.filter(interview_date__month=_today.month, interview_date__year=_today.year)
 
     if request.GET.get("sortby"):
         interviews = sortby(request, interviews, "sortby")
@@ -1517,6 +1524,8 @@ def interview_view(request):
     """
     This method render all interviews to the template
     """
+    import datetime as _dt
+
     previous_data = request.GET.urlencode()
 
     if request.user.has_perm("recruitment.view_interviewschedule"):
@@ -1525,6 +1534,12 @@ def interview_view(request):
         interviews = InterviewSchedule.objects.filter(
             employee_id=request.user.employee_get.id
         ).order_by("-interview_date")
+
+    # Default to current month when no date filter is provided.
+    _date_keys = {"interview_date", "interview_date_from", "interview_date_till", "scheduled_from", "scheduled_till"}
+    if not _date_keys.intersection(request.GET.keys()):
+        _today = _dt.date.today()
+        interviews = interviews.filter(interview_date__month=_today.month, interview_date__year=_today.year)
 
     form = InterviewFilter(request.GET, queryset=interviews)
     page_number = request.GET.get("page")

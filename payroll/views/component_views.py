@@ -1026,12 +1026,23 @@ def view_payslip(request):
     """
     This method is used to render the template for viewing a payslip.
     """
+    import datetime as _dt
+
     if request.user.has_perm("payroll.view_payslip"):
         payslips = Payslip.objects.all()
     else:
         payslips = Payslip.objects.filter(employee_id__employee_user_id=request.user)
+
+    # Default to current month when no date filter is provided.
+    _get = request.GET.copy()
+    _date_keys = {"start_date", "end_date", "start_date_from", "start_date_till", "month", "year"}
+    if not _date_keys.intersection(_get.keys()):
+        _today = _dt.date.today()
+        _get.setdefault("month", str(_today.month))
+        _get.setdefault("year", str(_today.year))
+
     export_column = forms.PayslipExportColumnForm()
-    filter_form = PayslipFilter(request.GET, payslips)
+    filter_form = PayslipFilter(_get, payslips)
     payslips = filter_form.qs
     bulk_form = forms.GeneratePayslipForm()
     field = request.GET.get("group_by")
@@ -1062,11 +1073,21 @@ def filter_payslip(request):
     """
     Filter and retrieve a list of payslips based on the provided query parameters.
     """
+    import datetime as _dt
+
+    # Default to current month when no date filter is provided.
+    _get = request.GET.copy()
+    _date_keys = {"start_date", "end_date", "start_date_from", "start_date_till", "month", "year"}
+    if not _date_keys.intersection(_get.keys()):
+        _today = _dt.date.today()
+        _get.setdefault("month", str(_today.month))
+        _get.setdefault("year", str(_today.year))
+
     query_string = request.GET.urlencode()
     if request.user.has_perm("payroll.view_payslip"):
-        payslips = PayslipFilter(request.GET).qs
+        payslips = PayslipFilter(_get).qs
     else:
-        emp_request = request.GET.copy()
+        emp_request = _get.copy()
         employee = Employee.objects.filter(employee_user_id=request.user.id).first()
         employee_id = employee.id
         emp_request["employee_id"] = str(employee_id)

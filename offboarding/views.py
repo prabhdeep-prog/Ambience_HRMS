@@ -734,9 +734,23 @@ def request_view(request):
     """
     This method is used to view the resignation request
     """
+    import datetime as _dt
+
     defatul_filter = {"status": "requested"}
     filter_instance = LetterFilter()
-    letters = ResignationLetter.objects.all()
+
+    # Default: show only letters from this month or pending (not yet actioned).
+    # When a status or date filter is explicitly set, respect that instead.
+    _date_keys = {"planned_to_leave_on", "planned_to_leave_on__gte", "planned_to_leave_on__lte", "status"}
+    if _date_keys.intersection(request.GET.keys()):
+        letters = ResignationLetter.objects.all()
+    else:
+        _month_start = _dt.date.today().replace(day=1)
+        letters = ResignationLetter.objects.filter(
+            created_at__gte=_month_start
+        ) | ResignationLetter.objects.filter(status="requested")
+        letters = letters.distinct()
+
     offboardings = Offboarding.objects.all()
 
     return render(

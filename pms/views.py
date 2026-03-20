@@ -1754,12 +1754,19 @@ def feedback_list_view(request):
     """
     user = request.user
     employee = user.employee_get
+
+    # Default to current year for own and all feedbacks when no date filter set.
+    _date_keys = {"start_date", "end_date", "start_date__gte", "end_date__lte"}
+    _apply_year_default = not _date_keys.intersection(request.GET.keys())
+    _current_year = datetime.date.today().year
+
     # filter own feedbacks (self feedbacks)
-    feedback_own = Feedback.objects.filter(
-        employee_id=employee,
-        archive=False,
-    )
-    # feedbacks to answer
+    feedback_own_qs = Feedback.objects.filter(employee_id=employee, archive=False)
+    if _apply_year_default:
+        feedback_own_qs = feedback_own_qs.filter(start_date__year=_current_year)
+    feedback_own = feedback_own_qs
+
+    # feedbacks to answer — already date-bounded to active window
     feedback_requested = Feedback.objects.filter(
         Q(manager_id=employee)
         | Q(colleague_id=employee)
@@ -1769,10 +1776,13 @@ def feedback_list_view(request):
         end_date__gte=datetime.date.today(),
     ).distinct()
     if user.has_perm("pms.view_feedback"):
-        feedback_all = Feedback.objects.filter(archive=False)
+        feedback_all_qs = Feedback.objects.filter(archive=False)
     else:
         # feedbacks to review if employee is a manager
-        feedback_all = Feedback.objects.filter(manager_id=employee, archive=False)
+        feedback_all_qs = Feedback.objects.filter(manager_id=employee, archive=False)
+    if _apply_year_default:
+        feedback_all_qs = feedback_all_qs.filter(start_date__year=_current_year)
+    feedback_all = feedback_all_qs
     # Anonymous feedbacks
     anonymous_feedback = (
         AnonymousFeedback.objects.filter(

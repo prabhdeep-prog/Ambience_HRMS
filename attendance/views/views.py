@@ -330,18 +330,29 @@ def attendance_view(request):
     """
     This method is used to view attendances.
     """
+    import datetime as _dt
+
     previous_data = request.GET.urlencode()
     form = AttendanceForm()
     condition = AttendanceValidationCondition.objects.first()
     minot = strtime_seconds("00:00")
     if condition is not None and condition.minimum_overtime_to_approve is not None:
         minot = strtime_seconds(condition.minimum_overtime_to_approve)
+
+    # Default to current month when no date filter is in the URL.
+    _date_keys = {"attendance_date__gte", "attendance_date__lte", "attendance_date", "month", "year"}
+    _apply_month_default = not _date_keys.intersection(request.GET.keys())
+    _month_start = _dt.date.today().replace(day=1) if _apply_month_default else None
+
     validate_attendances = Attendance.objects.filter(
         attendance_validated=False, employee_id__is_active=True
     )
     attendances = Attendance.objects.filter(
         attendance_validated=True, employee_id__is_active=True
     )
+    if _apply_month_default:
+        validate_attendances = validate_attendances.filter(attendance_date__gte=_month_start)
+        attendances = attendances.filter(attendance_date__gte=_month_start)
     # ot_attendances = Attendance.objects.filter(
     #     overtime_second__gte=minot,
     #     attendance_validated=True,
@@ -614,8 +625,18 @@ def attendance_overtime_view(request):
     """
     This method is used to view attendance account or overtime account.
     """
+    import datetime as _dt
+
     previous_data = request.GET.urlencode()
-    filter_obj = AttendanceOverTimeFilter(request.GET)
+
+    # Default to current month/year when no date filter is provided.
+    _get = request.GET.copy()
+    if not {"month", "year"}.intersection(_get.keys()):
+        _today = _dt.date.today()
+        _get.setdefault("month", _today.strftime("%B"))   # e.g. "March"
+        _get.setdefault("year", str(_today.year))
+
+    filter_obj = AttendanceOverTimeFilter(_get)
     if filter_obj.qs.exists():
         template = "attendance/attendance_account/attendance_overtime_view.html"
     else:
@@ -754,8 +775,18 @@ def attendance_activity_view(request):
     """
     This method will render a template to view all attendance activities
     """
+    import datetime as _dt
+
     previous_data = request.GET.urlencode()
-    filter_obj = AttendanceActivityFilter(request.GET)
+
+    # Default to current month when no date filter is provided.
+    _get = request.GET.copy()
+    _date_keys = {"attendance_date", "attendance_date_from", "attendance_date_till"}
+    if not _date_keys.intersection(_get.keys()):
+        _month_start = _dt.date.today().replace(day=1)
+        _get.setdefault("attendance_date_from", str(_month_start))
+
+    filter_obj = AttendanceActivityFilter(_get)
     attendance_activities = filter_obj.qs
     self_attendance_activities = attendance_activities.filter(
         employee_id__employee_user_id=request.user
@@ -1104,7 +1135,16 @@ def late_come_early_out_view(request):
     """
     This method render template to view all late come early out entries
     """
-    filter_obj = LateComeEarlyOutFilter(request.GET)
+    import datetime as _dt
+
+    # Default to current month when no date filter is provided.
+    _get = request.GET.copy()
+    _date_keys = {"attendance_date__gte", "attendance_date__lte", "attendance_date", "month", "year"}
+    if not _date_keys.intersection(_get.keys()):
+        _month_start = _dt.date.today().replace(day=1)
+        _get.setdefault("attendance_date__gte", str(_month_start))
+
+    filter_obj = LateComeEarlyOutFilter(_get)
     if filter_obj.qs.exists():
         template = "attendance/late_come_early_out/reports.html"
     else:

@@ -953,11 +953,7 @@ class LeaveRequest(HorillaModel):
                 _("Mismatch in the breakdown of the start and end date.")
             )
 
-        # Attachment requirement
-        if leave_type and leave_type.require_attachment == "yes" and not attachment:
-            raise ValidationError(
-                {"attachment": _("An attachment is required for this leave request")}
-            )
+        # Attachment is always optional — removed mandatory enforcement
 
         # Overlapping leave check
         if self.start_date and self.end_date:

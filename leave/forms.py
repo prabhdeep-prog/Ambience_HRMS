@@ -221,6 +221,7 @@ class LeaveRequestCreationForm(BaseModelForm):
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
+        self.fields["attachment"].required = False
         self.fields["attachment"].widget.attrs["accept"] = ".jpg, .jpeg, .png, .pdf"
         self.fields["leave_type_id"].widget.attrs.update(
             {
@@ -308,6 +309,7 @@ class LeaveRequestUpdationForm(BaseModelForm):
                 "hx-get": "/leave/get-employee-leave-types?form=LeaveRequestUpdationForm",
             }
         )
+        self.fields["attachment"].required = False
         self.fields["attachment"].widget.attrs["accept"] = ".jpg, .jpeg, .png, .pdf"
 
         self.fields["start_date"].widget.attrs.update(
@@ -435,6 +437,7 @@ class UserLeaveRequestForm(BaseModelForm):
         leave_type = kwargs.pop("initial", None)
         employee = kwargs.pop("employee", None)
         super(UserLeaveRequestForm, self).__init__(*args, **kwargs)
+        self.fields["attachment"].required = False
         self.fields["attachment"].widget.attrs["accept"] = ".jpg, .jpeg, .png, .pdf"
         if employee:
             available_leaves = employee.available_leave.all()
@@ -560,6 +563,7 @@ class UserLeaveRequestCreationForm(BaseModelForm):
     def __init__(self, *args, **kwargs):
         employee = kwargs.pop("employee", None)
         super().__init__(*args, **kwargs)
+        self.fields["attachment"].required = False
         self.fields["attachment"].widget.attrs["accept"] = ".jpg, .jpeg, .png, .pdf"
         if employee:
             available_leaves = employee.available_leave.all()

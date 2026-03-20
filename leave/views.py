@@ -547,7 +547,18 @@ def leave_request_view(request):
     Returns:
     GET : return leave request view template
     """
+    from datetime import date
+
     queryset = LeaveRequestFilter(request.GET).qs.order_by("-id").distinct()
+
+    # Default to current month when no date filter is explicitly provided.
+    # This prevents last year's records from appearing by default.
+    date_filter_keys = {"from_date", "to_date", "start_date", "end_date"}
+    if not date_filter_keys.intersection(request.GET.keys()):
+        today = date.today()
+        month_start = today.replace(day=1)
+        queryset = queryset.filter(start_date__gte=month_start)
+
     multiple_approvals = filter_conditional_leave_request(request).distinct()
     normal_requests = filtersubordinates(request, queryset, "leave.view_leaverequest")
 

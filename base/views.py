@@ -2282,6 +2282,7 @@ def rotating_work_type_assign_view(request):
     """
     This method renders template to view rotating work type objects
     """
+    from datetime import date as _date
 
     previous_data = request.GET.urlencode()
     rwork_type_assign = RotatingWorkTypeAssignFilter(request.GET).qs.order_by("-id")
@@ -2293,6 +2294,13 @@ def rotating_work_type_assign_view(request):
         rwork_type_assign = rwork_type_assign.filter(is_active=True)
     if request.GET.get("is_active") == "false":
         rwork_type_assign = rwork_type_assign.filter(is_active=False)
+
+    # Default to current month when no date filter is explicitly provided.
+    date_filter_keys = {"start_date", "next_change_date"}
+    if not date_filter_keys.intersection(request.GET.keys()):
+        today = _date.today()
+        month_start = today.replace(day=1)
+        rwork_type_assign = rwork_type_assign.filter(start_date__gte=month_start)
     rwork_type_assign = filtersubordinates(
         request, rwork_type_assign, "base.view_rotatingworktypeassign"
     )
@@ -2928,6 +2936,8 @@ def rotating_shift_assign_view(request):
     """
     This method renders all instance of rotating shift assign to a template
     """
+    from datetime import date as _date
+
     previous_data = request.GET.urlencode()
     rshift_assign = RotatingShiftAssignFilters(request.GET).qs.order_by("-id")
     field = request.GET.get("field")
@@ -2936,6 +2946,13 @@ def rotating_shift_assign_view(request):
         or request.GET.get("is_active") == "unknown"
     ):
         rshift_assign = rshift_assign.filter(is_active=True)
+
+    # Default to current month when no date filter is explicitly provided.
+    date_filter_keys = {"start_date", "next_change_date"}
+    if not date_filter_keys.intersection(request.GET.keys()):
+        today = _date.today()
+        month_start = today.replace(day=1)
+        rshift_assign = rshift_assign.filter(start_date__gte=month_start)
     rshift_assign = filtersubordinates(
         request, rshift_assign, "base.view_rotatingshiftassign"
     )
@@ -3594,6 +3611,8 @@ def work_type_request_view(request):
     """
     This method renders template to  view all work type requests
     """
+    from datetime import date as _date
+
     previous_data = request.GET.urlencode()
     employee = Employee.objects.filter(employee_user_id=request.user).first()
     if request.user.has_perm("base.view_worktyperequest"):
@@ -3606,6 +3625,14 @@ def work_type_request_view(request):
             employee_id=employee
         )
         work_type_requests = work_type_requests.filter(employee_id__is_active=True)
+
+    # Default to current month when no date filter is explicitly provided.
+    date_filter_keys = {"requested_date", "requested_date__gte", "requested_date__lte"}
+    if not date_filter_keys.intersection(request.GET.keys()):
+        today = _date.today()
+        month_start = today.replace(day=1)
+        work_type_requests = work_type_requests.filter(requested_date__gte=month_start)
+
     requests_ids = json.dumps(
         [
             instance.id
@@ -4316,6 +4343,8 @@ def shift_request_view(request):
     """
     This method renders all shift request instances to a template
     """
+    from datetime import date as _date
+
     previous_data = request.GET.urlencode()
     employee = Employee.objects.filter(employee_user_id=request.user).first()
     shift_requests = filtersubordinates(
@@ -4325,6 +4354,13 @@ def shift_request_view(request):
     )
     shift_requests = shift_requests | ShiftRequest.objects.filter(employee_id=employee)
     shift_requests = shift_requests.filter(employee_id__is_active=True)
+
+    # Default to current month when no date filter is explicitly provided.
+    date_filter_keys = {"requested_date", "requested_date__gte", "requested_date__lte"}
+    if not date_filter_keys.intersection(request.GET.keys()):
+        today = _date.today()
+        month_start = today.replace(day=1)
+        shift_requests = shift_requests.filter(requested_date__gte=month_start)
 
     allocated_shift_requests = filtersubordinates(
         request,

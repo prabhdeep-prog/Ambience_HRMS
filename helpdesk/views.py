@@ -400,7 +400,19 @@ def ticket_view(request):
     Parameters:
         request (HttpRequest): The HTTP request object.
     """
-    tickets = Ticket.objects.filter(is_active=True)
+    import datetime as _dt
+
+    # Active tickets within the last 30 days by default.
+    # If a date or status filter is explicitly provided, use full queryset.
+    _date_keys = {"created_date", "deadline", "resolved_date", "status"}
+    if _date_keys.intersection(request.GET.keys()):
+        tickets = Ticket.objects.filter(is_active=True)
+    else:
+        _thirty_days_ago = _dt.date.today() - _dt.timedelta(days=30)
+        tickets = Ticket.objects.filter(
+            is_active=True, created_date__gte=_thirty_days_ago
+        )
+
     view = request.GET.get("view") if request.GET.get("view") else "list"
     employee = request.user.employee_get
     previous_data = request.GET.urlencode()
