@@ -1,0 +1,136 @@
+# =============================================================================
+# Horilla HRMS — EC2 Docker Compose
+# Runs: nginx + web (gunicorn) + worker (celery) + beat (celery) + redis
+#
+# Usage:
+#   First deploy:  docker compose up -d --build
+#   Updates:       docker compose up -d --build web worker beat   (skips redis/nginx)
+#   Logs:          docker compose logs -f web
+#   Stop all:      docker compose down
+#
+# restart: unless-stopped ensures all containers auto-start after EC2 reboot.
+# =============================================================================
+
+services:
+
+  # ── Redis (message broker + cache) ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - horilla_net
+
+  # ── Django / Gunicorn (web) ─────────────────────────────────────────────────
+  # On first boot: runs migrations → collectstatic → creates admin user → starts gunicorn
+  web:
+    build:
+      context: .
+      target: runtime
+    # ── To pull a pre-built image from ECR instead of building on EC2: ──────
+    # image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/horilla-hrms:latest
+    # ────────────────────────────────────────────────────────────────────────
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - staticfiles:/app/staticfiles   # shared with nginx for direct file serving
+      - media:/app/media               # shared with nginx for user uploads
+      - logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s       # gunicorn needs time to complete migrations first
+    networks:
+      - horilla_net
+
+  # ── Celery Worker (background tasks) ───────────────────────────────────────
+  # Handles: payroll PDFs, email sending, biometric sync, bulk exports
+  worker:
+    build:
+      context: .
+      target: runtime
+    # image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/horilla-hrms:latest
+    restart: unless-stopped
+    env_file: .env
+    command: /app/entrypoint.worker.sh
+    volumes:
+      - media:/app/media
+      - logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy     # wait for migrations to complete
+    networks:
+      - horilla_net
+
+  # ── Celery Beat (task scheduler) ────────────────────────────────────────────
+  # Triggers: auto payslip generation, contract expiry alerts, etc.
+  # WARNING: Run exactly ONE instance — never scale to 2+.
+  #          Two beat instances would fire every scheduled task twice.
+  beat:
+    build:
+      context: .
+      target: runtime
+    # image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/horilla-hrms:latest
+    restart: unless-stopped
+    env_file: .env
+    command: /app/entrypoint.beat.sh
+    volumes:
+      - logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks:
+      - horilla_net
+
+  # ── Nginx (reverse proxy + static file server) ──────────────────────────────
+  # Serves static/media files directly (no Django overhead).
+  # Terminates SSL and proxies all other requests to gunicorn.
+  nginx:
+    image: nginx:1.25-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro          # SSL certs go here (see setup-ec2.sh)
+      - staticfiles:/app/staticfiles:ro         # read-only — nginx only serves, never writes
+      - media:/app/media:ro
+      - logs:/app/logs/nginx
+    depends_on:
+      - web
+    networks:
+      - horilla_net
+
+# ── Named volumes ─────────────────────────────────────────────────────────────
+volumes:
+  redis_data:       # Redis AOF + RDB snapshots — survives container restarts
+  staticfiles:      # collectstatic output shared between web and nginx
+  media:            # user-uploaded files (profile photos, documents, etc.)
+  logs:             # centralised log directory
+
+# ── Network ───────────────────────────────────────────────────────────────────
+networks:
+  horilla_net:
+    driver: bridge
