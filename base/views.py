@@ -23,6 +23,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import Group, Permission, User
 from django.contrib.auth.views import PasswordResetConfirmView, PasswordResetView
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile
 from django.core.mail import EmailMessage, EmailMultiAlternatives
 from django.core.management import call_command
@@ -367,7 +368,8 @@ def initialize_database_company(request):
                 employee = request.user.employee_get
                 employee.employee_work_info.company_id = company
                 employee.employee_work_info.save()
-            except:
+            except (AttributeError, ObjectDoesNotExist):
+                # Superuser initialising may not have an employee profile yet
                 pass
             return render(
                 request,
@@ -823,7 +825,7 @@ def two_factor_auth(request):
     # request.session["otp_code"] = None
     try:
         otp = get_otp(request)
-    except:
+    except Exception:
         otp = None
 
     if request.method == "POST":
@@ -1526,7 +1528,7 @@ def mail_server_test_email(request):
                 if request.user.employee_get.get_company()
                 else hq
             )
-        except:
+        except (AttributeError, ObjectDoesNotExist):
             company = hq
 
         if company:
@@ -3095,7 +3097,7 @@ def rotating_shift_assign_import(request):
         try:
             keys_list = list(work_info_dicts[0].keys())
             error_dict = {key: [] for key in keys_list}
-        except:
+        except (IndexError, KeyError):
             messages.error(request, "something went wrong....")
             data_frame = pd.DataFrame(
                 ["Please provide valid data"],
@@ -3145,7 +3147,8 @@ def rotating_shift_assign_import(request):
                             additional_data.append(
                                 shifts.filter(employee_shift=item).first().id
                             )
-                        except:
+                        except AttributeError:
+                            # .first() returned None — shift not found
                             additional_data.append(None)
 
                     rotating_shift_obj.additional_data = {
@@ -3220,10 +3223,7 @@ def rotating_shift_assign_import(request):
                     if key in item:
                         value.append(item[key])
                     else:
-                        try:
-                            value.append(None)
-                        except:
-                            pass
+                        value.append(None)
 
             keys_to_remove = [
                 key
@@ -5153,8 +5153,10 @@ def mark_as_read_notification_json(request):
         notification = Notification.objects.get(id=notification_id)
         notification.mark_as_read()
         return JsonResponse({"success": True})
-    except:
-        return JsonResponse({"success": False, "error": "Invalid request"})
+    except (KeyError, ValueError):
+        return JsonResponse({"success": False, "error": "Invalid notification ID"})
+    except ObjectDoesNotExist:
+        return JsonResponse({"success": False, "error": "Notification not found"})
 
 
 @login_required
@@ -5281,7 +5283,6 @@ def date_settings(request):
 
 
 @permission_required("base.change_company")
-@csrf_exempt  # Use this decorator if CSRF protection is enabled
 def save_date_format(request):
     if request.method == "POST":
         # Taking the selected Date Format
@@ -5374,7 +5375,6 @@ def get_date_format(request):
 
 
 @permission_required("base.change_company")
-@csrf_exempt  # Use this decorator if CSRF protection is enabled
 def save_time_format(request):
     if request.method == "POST":
         # Taking the selected Time Format
@@ -5999,7 +5999,7 @@ def multiple_level_approval_create(request):
                 reporting_manager = None
                 try:
                     employee_id = int(emp_id)
-                except:
+                except (ValueError, TypeError):
                     employee_id = None
                     reporting_manager = emp_id
                 MultipleApprovalManagers.objects.create(
@@ -7021,14 +7021,14 @@ def csv_holiday_import(file):
 
                 try:
                     start_date = format_date(start_date)
-                except:
+                except ValueError:
                     save = False
                     holiday_dict["Start Date Error"] = _("Invalid start date format.")
                     error_list.append(holiday_dict)
 
                 try:
                     end_date = format_date(end_date)
-                except:
+                except ValueError:
                     save = False
                     holiday_dict["End Date Error"] = _("Invalid end date format.")
                     error_list.append(holiday_dict)

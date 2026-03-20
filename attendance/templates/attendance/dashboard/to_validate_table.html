@@ -40,8 +40,8 @@
                         data-target="#objectDetailsModalW25" hx-target="#objectDetailsModalW25Target"
                         hx-get="{% url 'user-request-one-view' attendance.id %}?validate=true&instances_ids={{validate_attendances_ids}}">
 
-                        <div class="oh-sticky-table__sd">
-                            <div class="oh-profile oh-profile--md">
+                        <div class="oh-sticky-table__sd" style="text-align:left">
+                            <div class="oh-profile oh-profile--md" style="justify-content:flex-start">
                                 <div class="oh-profile__avatar mr-1">
                                     <img src="{{attendance.employee_id.get_avatar}}" class="oh-profile__image"
                                         alt="Mary Magdalene" />

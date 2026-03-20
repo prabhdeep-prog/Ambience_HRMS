@@ -666,7 +666,7 @@ class AttendanceOverTime(HorillaModel):
         Meta class to add some additional options
         """
 
-        unique_together = [("employee_id"), ("month"), ("year")]
+        unique_together = [("employee_id", "month", "year")]
         ordering = ["-year", "-month_sequence"]
         verbose_name = _("Hour Account")
         verbose_name_plural = _("Hour Accounts")

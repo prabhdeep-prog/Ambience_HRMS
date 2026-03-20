@@ -480,6 +480,22 @@ MESSAGE_TAGS = {
 
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
+# ---------------------------------------------------------------------------
+# CORS — Cross-Origin Resource Sharing
+# ---------------------------------------------------------------------------
+# Set CORS_ALLOWED_ORIGINS in .env as a comma-separated list:
+#   CORS_ALLOWED_ORIGINS=https://app.example.com,https://mobile.example.com
+# ---------------------------------------------------------------------------
+_cors_origins = env("CORS_ALLOWED_ORIGINS", default="")
+CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+
+# Restrict CORS only to the /api/ namespace — HTML pages are never cross-origin.
+CORS_URLS_REGEX = r"^/api/.*$"
+
+# Do NOT allow credentials (cookies/session) over CORS.
+# JWT in the Authorization header is the safe pattern for API clients.
+CORS_ALLOW_CREDENTIALS = False
+
 LOGIN_URL = "/login"
 
 

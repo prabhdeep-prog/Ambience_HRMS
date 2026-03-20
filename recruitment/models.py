@@ -190,7 +190,7 @@ class Recruitment(HorillaModel):
         verbose_name=_("Post on LinkedIn"),
     )
     objects = HorillaCompanyManager()
-    default = models.manager.Manager()
+    default = models.Manager()
     optional_profile_image = models.BooleanField(
         default=False,
         help_text=_("Profile image not mandatory for candidate creation"),
@@ -200,6 +200,94 @@ class Recruitment(HorillaModel):
         default=False,
         help_text=_("Resume not mandatory for candidate creation"),
         verbose_name=_("Optional Resume"),
+    )
+
+    # ── Careers page fields ──────────────────────────────────────────────────
+    LOCATION_CHOICES = [
+        ("remote", _("Remote")),
+        ("onsite", _("On-site")),
+        ("hybrid", _("Hybrid")),
+    ]
+    EMPLOYMENT_TYPE_CHOICES = [
+        ("full_time", _("Full-time")),
+        ("part_time", _("Part-time")),
+        ("contract", _("Contract")),
+        ("internship", _("Internship")),
+    ]
+    EXPERIENCE_LEVEL_CHOICES = [
+        ("entry", _("Entry Level")),
+        ("mid", _("Mid Level")),
+        ("senior", _("Senior")),
+        ("lead", _("Lead")),
+    ]
+
+    location = models.CharField(
+        max_length=20,
+        choices=LOCATION_CHOICES,
+        default="onsite",
+        verbose_name=_("Work Location"),
+    )
+    location_city = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name=_("City / Region"),
+        help_text=_("e.g. Bengaluru, New York, London"),
+    )
+    employment_type = models.CharField(
+        max_length=20,
+        choices=EMPLOYMENT_TYPE_CHOICES,
+        default="full_time",
+        verbose_name=_("Employment Type"),
+    )
+    experience_level = models.CharField(
+        max_length=20,
+        choices=EXPERIENCE_LEVEL_CHOICES,
+        default="mid",
+        verbose_name=_("Experience Level"),
+    )
+    salary_min = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Salary Min"),
+    )
+    salary_max = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Salary Max"),
+    )
+    salary_currency = models.CharField(
+        max_length=10,
+        default="USD",
+        verbose_name=_("Currency"),
+    )
+    responsibilities = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name=_("Responsibilities"),
+        help_text=_("Key responsibilities for this role (one per line)"),
+    )
+    requirements = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name=_("Requirements"),
+        help_text=_("Required qualifications (one per line)"),
+    )
+    nice_to_have = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name=_("Nice to Have"),
+        help_text=_("Optional/preferred qualifications (one per line)"),
+    )
+    benefits = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name=_("Benefits"),
+        help_text=_("Benefits offered (one per line)"),
     )
 
     class Meta:

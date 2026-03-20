@@ -44,6 +44,13 @@ def start_automation():
     """
     Automation signals
     """
+    from django.conf import settings
+
+    # Skip all automation wiring during tests to prevent queries against tables
+    # that may not yet exist in the in-memory test database.
+    if getattr(settings, "HORILLA_TESTING", False):
+        return
+
     from base.models import HorillaMailTemplate
     from horilla_automations.methods.methods import get_model_class, split_query_string
     from horilla_automations.models import MailAutomation
@@ -280,6 +287,13 @@ def send_automated_mail(
     instance,
     previous_instance,
 ):
+    from django.conf import settings
+
+    # Short-circuit during test runs to prevent HorillaMailTemplate lookup errors
+    # on an empty test database. Set HORILLA_TESTING=True in test_settings.py.
+    if getattr(settings, "HORILLA_TESTING", False):
+        return
+
     from horilla_automations.methods.methods import evaluate_condition, operator_map
     from horilla_views.templatetags.generic_template_filters import getattribute
 

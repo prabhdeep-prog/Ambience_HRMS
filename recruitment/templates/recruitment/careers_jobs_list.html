@@ -1,0 +1,137 @@
+{% load i18n %}
+{% load recruitmentfilters %}
+
+{% if recruitments %}
+<p class="careers-jobs-count">
+    {% blocktrans with count=total_jobs %}Showing <strong>{{ count }}</strong> open position{{ count|pluralize }}{% endblocktrans %}
+</p>
+
+<div class="careers-jobs-grid">
+    {% for recruitment in recruitments %}
+    <div class="careers-job-card" onclick="openJobModal({{ recruitment.id }})">
+        <div class="careers-job-info">
+            <h3 class="careers-job-title">{{ recruitment.title }}</h3>
+            <div class="careers-job-meta">
+                <!-- Department -->
+                {% for pos in recruitment.open_positions.all %}
+                {% if pos.department_id %}
+                <span class="careers-job-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                    </svg>
+                    {{ pos.department_id.department }}
+                </span>
+                {% if forloop.first %}{% endif %}
+                {% endif %}
+                {% if forloop.first %}{% endif %}
+                {% endfor %}
+
+                <!-- Location -->
+                <span class="careers-job-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    {{ recruitment.get_location_display }}{% if recruitment.location_city %} &middot; {{ recruitment.location_city }}{% endif %}
+                </span>
+
+                <!-- Employment Type -->
+                <span class="careers-job-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    {{ recruitment.get_employment_type_display }}
+                </span>
+
+                <!-- Experience Level -->
+                <span class="careers-job-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                    </svg>
+                    {{ recruitment.get_experience_level_display }}
+                </span>
+            </div>
+
+            <!-- Tags: Job positions + Skills -->
+            <div class="careers-job-tags">
+                {% for pos in recruitment.open_positions.all %}
+                <span class="careers-job-tag">{{ pos.job_position }}</span>
+                {% endfor %}
+                {% for skill in recruitment.skills.all %}
+                {% if forloop.counter <= 4 %}
+                <span class="careers-job-tag skill-tag">{{ skill.title }}</span>
+                {% endif %}
+                {% endfor %}
+                {% if recruitment.salary_min or recruitment.salary_max %}
+                <span class="careers-salary-badge">
+                    {{ recruitment.salary_currency }}
+                    {% if recruitment.salary_min and recruitment.salary_max %}
+                        {{ recruitment.salary_min|floatformat:0 }} - {{ recruitment.salary_max|floatformat:0 }}
+                    {% elif recruitment.salary_min %}
+                        {{ recruitment.salary_min|floatformat:0 }}+
+                    {% elif recruitment.salary_max %}
+                        {% trans "Up to" %} {{ recruitment.salary_max|floatformat:0 }}
+                    {% endif %}
+                </span>
+                {% endif %}
+            </div>
+
+            <p class="careers-job-posted">
+                {% trans "Posted" %} {{ recruitment.created_at|timesince }} {% trans "ago" %}
+            </p>
+        </div>
+        <div class="careers-job-actions" onclick="event.stopPropagation()">
+            <button class="careers-view-btn" onclick="openJobModal({{ recruitment.id }})">{% trans "View Job" %}</button>
+            <a href="{% url 'application-form' %}?recruitmentId={{ recruitment.id }}" target="_blank" rel="noopener noreferrer" class="careers-apply-link">{% trans "Apply Now" %}</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="careers-pagination">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_department %}&department={{ current_department }}{% endif %}{% if current_location %}&location={{ current_location }}{% endif %}{% if current_employment_type %}&employment_type={{ current_employment_type }}{% endif %}{% if current_experience_level %}&experience_level={{ current_experience_level }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}#open-positions" class="careers-page-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+    </a>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+    {% if page_obj.number == num %}
+    <span class="careers-page-btn active">{{ num }}</span>
+    {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+    <a href="?page={{ num }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_department %}&department={{ current_department }}{% endif %}{% if current_location %}&location={{ current_location }}{% endif %}{% if current_employment_type %}&employment_type={{ current_employment_type }}{% endif %}{% if current_experience_level %}&experience_level={{ current_experience_level }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}#open-positions" class="careers-page-btn">{{ num }}</a>
+    {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% if current_search %}&search={{ current_search }}{% endif %}{% if current_department %}&department={{ current_department }}{% endif %}{% if current_location %}&location={{ current_location }}{% endif %}{% if current_employment_type %}&employment_type={{ current_employment_type }}{% endif %}{% if current_experience_level %}&experience_level={{ current_experience_level }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}#open-positions" class="careers-page-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<!-- Empty State -->
+<div class="careers-empty">
+    <div class="careers-empty-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+        </svg>
+    </div>
+    <h3>{% trans "We don't have any open positions right now." %}</h3>
+    <p>{% trans "But we're always looking for great talent. Send us your resume and we'll keep it on file." %}</p>
+    <a href="{% url 'application-form' %}" target="_blank" rel="noopener noreferrer" class="careers-empty-btn">
+        {% trans "Submit Resume" %}
+    </a>
+</div>
+{% endif %}

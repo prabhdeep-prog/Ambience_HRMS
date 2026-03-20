@@ -16,7 +16,7 @@ from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.models import ProtectedError
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext_lazy as _
 
 from base.methods import closest_numbers, get_pagination
@@ -79,17 +79,14 @@ def survey_preview(request, pk=None):
     )
 
 
-from django.views.decorators.csrf import csrf_exempt
-
-
-@csrf_exempt
 @login_required
+@is_recruitment_manager(perm="recruitment.change_recruitmentsurvey")
 def question_order_update(request):
     if request.method == "POST":
         # Extract data from the request
         question_id = request.POST.get("question_id")
         new_position = int(request.POST.get("new_position"))
-        qs = RecruitmentSurvey.objects.get(id=question_id)
+        qs = get_object_or_404(RecruitmentSurvey, id=question_id)
 
         if qs.sequence > new_position:
             new_position = new_position
@@ -359,7 +356,7 @@ def application_form(request):
         return redirect("open-recruitments")
 
     try:
-        recruitment = Recruitment.objects.filter(
+        recruitment = Recruitment.default.filter(
             id=recruitment_id, is_published=True
         ).first()  # Only create applications for published recruitments.
         if not recruitment:

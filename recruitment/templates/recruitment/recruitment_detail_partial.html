@@ -1,0 +1,352 @@
+{% load i18n %}
+
+<!-- Job Detail Modal Content (loaded via HTMX) -->
+<div class="careers-detail">
+    <style>
+        .careers-detail h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #111827;
+            margin: 0 0 20px;
+            line-height: 1.3;
+        }
+        .careers-detail-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #E5E7EB;
+        }
+        .careers-detail-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: #F3F4F6;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            color: #4B5563;
+            font-weight: 500;
+        }
+        .careers-detail-badge svg {
+            width: 15px;
+            height: 15px;
+            stroke: #6B7280;
+        }
+        .careers-detail-badge.primary {
+            background: #EEF2FF;
+            color: #4F46E5;
+        }
+        .careers-detail-badge.primary svg { stroke: #4F46E5; }
+        .careers-detail-badge.green {
+            background: #D1FAE5;
+            color: #059669;
+        }
+
+        .careers-detail-section {
+            margin-bottom: 28px;
+        }
+        .careers-detail-section h4 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #1F2937;
+            margin: 0 0 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .careers-detail-section h4 svg {
+            width: 20px;
+            height: 20px;
+            stroke: #4F46E5;
+        }
+        .careers-detail-section p,
+        .careers-detail-section .desc-content {
+            color: #4B5563;
+            line-height: 1.7;
+            font-size: 0.95rem;
+        }
+        .careers-detail-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .careers-detail-section ul li {
+            padding: 6px 0 6px 24px;
+            position: relative;
+            color: #4B5563;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .careers-detail-section ul li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 14px;
+            width: 8px;
+            height: 8px;
+            background: #4F46E5;
+            border-radius: 50%;
+            opacity: 0.6;
+        }
+        .careers-detail-skills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .careers-detail-skill-tag {
+            padding: 5px 14px;
+            background: #EEF2FF;
+            color: #4F46E5;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .careers-detail-actions {
+            display: flex;
+            gap: 12px;
+            padding-top: 24px;
+            border-top: 1px solid #E5E7EB;
+            flex-wrap: wrap;
+        }
+        .careers-detail-apply-btn {
+            flex: 1;
+            min-width: 160px;
+            padding: 14px 24px;
+            background: #4F46E5;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .careers-detail-apply-btn:hover {
+            background: #4338CA;
+            color: #FFFFFF;
+        }
+        .careers-detail-share-btn {
+            padding: 14px 24px;
+            background: #F3F4F6;
+            color: #374151;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+        }
+        .careers-detail-share-btn:hover {
+            background: #E5E7EB;
+        }
+        .careers-detail-posted {
+            font-size: 0.85rem;
+            color: #9CA3AF;
+            margin-bottom: 20px;
+        }
+    </style>
+
+    <h2>{{ recruitment.title }}</h2>
+
+    <p class="careers-detail-posted">
+        {% trans "Posted" %} {{ recruitment.created_at|timesince }} {% trans "ago" %}
+        {% if recruitment.company_id %}
+            &middot; {{ recruitment.company_id }}
+        {% endif %}
+    </p>
+
+    <div class="careers-detail-meta">
+        {% for pos in recruitment.open_positions.all %}
+        {% if pos.department_id %}
+        <span class="careers-detail-badge primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+            {{ pos.department_id.department }}
+        </span>
+        {% if forloop.first %}{% endif %}
+        {% endif %}
+        {% if forloop.first %}{% endif %}
+        {% endfor %}
+
+        <span class="careers-detail-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+            {{ recruitment.get_location_display }}{% if recruitment.location_city %} &middot; {{ recruitment.location_city }}{% endif %}
+        </span>
+
+        <span class="careers-detail-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            {{ recruitment.get_employment_type_display }}
+        </span>
+
+        <span class="careers-detail-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+            {{ recruitment.get_experience_level_display }}
+        </span>
+
+        {% if recruitment.salary_min or recruitment.salary_max %}
+        <span class="careers-detail-badge green">
+            {{ recruitment.salary_currency }}
+            {% if recruitment.salary_min and recruitment.salary_max %}
+                {{ recruitment.salary_min|floatformat:0 }} - {{ recruitment.salary_max|floatformat:0 }}
+            {% elif recruitment.salary_min %}
+                {{ recruitment.salary_min|floatformat:0 }}+
+            {% elif recruitment.salary_max %}
+                {% trans "Up to" %} {{ recruitment.salary_max|floatformat:0 }}
+            {% endif %}
+        </span>
+        {% endif %}
+    </div>
+
+    <!-- About the Role -->
+    {% if recruitment.description %}
+    <div class="careers-detail-section">
+        <h4>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            {% trans "About the Role" %}
+        </h4>
+        <div class="desc-content">{{ recruitment.description|safe }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Job Positions -->
+    <div class="careers-detail-section">
+        <h4>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+            {% trans "Open Positions" %}
+        </h4>
+        <ul>
+            {% for pos in recruitment.open_positions.all %}
+            <li>{{ pos.job_position }}{% if pos.department_id %} <span style="color:#9CA3AF">&middot; {{ pos.department_id.department }}</span>{% endif %}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Responsibilities -->
+    {% if recruitment.responsibilities %}
+    <div class="careers-detail-section">
+        <h4>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            {% trans "Responsibilities" %}
+        </h4>
+        <ul>
+            {% for line in recruitment.responsibilities.splitlines %}
+            {% if line.strip %}
+            <li>{{ line }}</li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Requirements -->
+    {% if recruitment.requirements %}
+    <div class="careers-detail-section">
+        <h4>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            {% trans "Requirements" %}
+        </h4>
+        <ul>
+            {% for line in recruitment.requirements.splitlines %}
+            {% if line.strip %}
+            <li>{{ line }}</li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Nice to Have -->
+    {% if recruitment.nice_to_have %}
+    <div class="careers-detail-section">
+        <h4>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+            </svg>
+            {% trans "Nice to Have" %}
+        </h4>
+        <ul>
+            {% for line in recruitment.nice_to_have.splitlines %}
+            {% if line.strip %}
+            <li>{{ line }}</li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Skills -->
+    {% if recruitment.skills.all %}
+    <div class="careers-detail-section">
+        <h4>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            {% trans "Skills" %}
+        </h4>
+        <div class="careers-detail-skills">
+            {% for skill in recruitment.skills.all %}
+            <span class="careers-detail-skill-tag">{{ skill.title }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Benefits -->
+    {% if recruitment.benefits %}
+    <div class="careers-detail-section">
+        <h4>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
+            {% trans "Benefits" %}
+        </h4>
+        <ul>
+            {% for line in recruitment.benefits.splitlines %}
+            {% if line.strip %}
+            <li>{{ line }}</li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="careers-detail-actions">
+        <a href="{% url 'application-form' %}?recruitmentId={{ recruitment.id }}" target="_blank" rel="noopener noreferrer" class="careers-detail-apply-btn">
+            {% trans "Apply Now" %}
+        </a>
+        <button class="careers-detail-share-btn" onclick="if(navigator.share){navigator.share({title:'{{recruitment.title|escapejs}}',url:window.location.origin+'/recruitment/open-recruitments'})}else{navigator.clipboard.writeText(window.location.origin+'/recruitment/open-recruitments');this.textContent='Link Copied!';setTimeout(()=>this.textContent='Share Job',2000)}">
+            {% trans "Share Job" %}
+        </button>
+    </div>
+</div>

@@ -1450,7 +1450,6 @@ def onboard_candidate_chart(request):
 
 @login_required
 @permission_required("candidate.change_candidate")
-@csrf_exempt
 @require_POST
 def update_joining(request):
     """
@@ -1643,7 +1642,6 @@ def onboarding_send_mail(request, candidate_id):
 
 @login_required
 @stage_manager_can_enter("recruitment.change_stage")
-@csrf_exempt
 @require_POST
 def update_probation_end(request):
     """

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "horilla",
+      "runtimeExecutable": "/Users/prabhdeep/Desktop/HRMS/horilla-1.0/horillavenv/bin/python",
+      "runtimeArgs": ["manage.py", "runserver", "8000"],
+      "port": 8000
+    }
+  ]
+}
